@@ -30,6 +30,7 @@ type Telemetry struct {
 	Timestamp      time.Time         `json:"timestamp"`
 	Online         bool              `json:"online"`
 	ActuatorStatus string            `json:"actuator_status"` // enabled, disabled, error, calibration
+	MockMode       bool              `json:"mock_mode,omitempty"`
 	IMU            *IMUData          `json:"imu,omitempty"`
 	JointStates    []JointStateData  `json:"joint_states,omitempty"`
 	CurrentTask    string            `json:"current_task"` // idle, zero, stand, walk

@@ -37,3 +37,14 @@ services:
       AGIBOT_MOCK: "1"
     depends_on:
       - nats
+
+  unitree-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.adapter.unitree
+    environment:
+      ROBOT_ID: go2-001
+      NATS_URL: nats://nats:4222
+      UNITREE_MOCK: "1"
+    depends_on:
+      - nats

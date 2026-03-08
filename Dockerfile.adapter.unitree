@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install nats-py
+COPY pkg/adapters/unitree/adapter.py .
+ENV UNITREE_MOCK=1
+ENV ROBOT_ID=go2-001
+ENV NATS_URL=nats://nats:4222
+CMD ["python", "adapter.py"]

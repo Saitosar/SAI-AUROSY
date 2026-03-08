@@ -52,4 +52,13 @@ func seedRobots(reg *registry.Store) {
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	})
+	reg.Add(&hal.Robot{
+		ID:              "go2-001",
+		Vendor:          "unitree",
+		Model:           "Go2",
+		AdapterEndpoint: "nats://localhost:4222",
+		TenantID:        "default",
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	})
 }

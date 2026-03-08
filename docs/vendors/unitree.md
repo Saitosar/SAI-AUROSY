@@ -199,6 +199,58 @@ float kp, kd;
 
 ---
 
+## SAI-AUROSY: Спецификация протоколов (Go2 Adapter)
+
+Адаптер Unitree Go2 использует **unitree_ros2** (ROS2) или **unitree_sdk2_python** (DDS). Публикует телеметрию в NATS, подписывается на команды.
+
+### ROS2 топики (телеметрия)
+
+| Топик | Тип | Описание |
+|-------|-----|----------|
+| `sportmodestate` | SportModeState | Позиция, скорость, gait, IMU |
+| `lowstate` | LowState | MotorState[20], IMU, BMS |
+
+### ROS2 топики (команды)
+
+| Топик | Тип | Описание |
+|-------|-----|----------|
+| `/api/sport/request` | unitree_api::msg::Request | Sport mode команды (Damp, BalanceStand, Move) |
+
+### Маппинг команд SAI-AUROSY → Unitree
+
+| SAI-AUROSY | Unitree Sport API |
+|------------|-------------------|
+| `safe_stop` | Damp (mode 7) — отключение крутящего момента |
+| `stand_mode` | BalanceStand |
+| `walk_mode` | Move(0, 0, 0) |
+| `zero_mode` | StandDown |
+| `cmd_vel` | Move(linear_x, linear_y, angular_z) |
+| `release_control` | Логирование; оператор берёт джойстик |
+
+### Маппинг телеметрии → SAI-AUROSY
+
+| Поле SAI-AUROSY | Источник |
+|-----------------|----------|
+| `online` | Heartbeat по sportmodestate/lowstate (timeout 2s) |
+| `actuator_status` | enabled / unknown |
+| `imu` | LowState.imu_state или SportModeState.imu_state |
+| `joint_states` | LowState.motor_state[] (q, dq, tau_est) |
+| `current_task` | Эвристика: safe_stop→idle, stand_mode→stand, walk_mode→walk, cmd_vel→walk |
+
+### Режимы работы адаптера
+
+- **UNITREE_MOCK=1** — без ROS2/SDK, публикация телеметрии каждую секунду
+- **unitree_ros2** — при наличии unitree_go, unitree_api (source cyclonedds_ws/install/setup.bash)
+- **unitree_sdk2_python** — альтернатива для команд (Damp, BalanceStand, Move)
+
+### Требования для подключения
+
+- ROS2 Humble (для unitree_ros2) или unitree_sdk2_python
+- Сеть: `source ~/unitree_ros2/setup.sh` или `setup_local.sh` для loopback
+- NATS: `NATS_URL`, `ROBOT_ID=go2-001`
+
+---
+
 ## Supported Models
 
 | Модель | unitree_sdk2 | unitree_ros | unitree_ros2 |
