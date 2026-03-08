@@ -16,6 +16,11 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop }) {
   const online = t.online ?? false
   const actuatorStatus = t.actuator_status || 'unknown'
   const currentTask = t.current_task || '-'
+  const jointStates = t.joint_states || []
+  const [linearX, setLinearX] = useState(0)
+  const [linearY, setLinearY] = useState(0)
+  const [angularZ, setAngularZ] = useState(0)
+  const [jointStatesExpanded, setJointStatesExpanded] = useState(false)
 
   return (
     <div
@@ -82,6 +87,89 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop }) {
           Walk
         </button>
       </div>
+      <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>cmd_vel (m/s, rad/s)</div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            type="number"
+            step="0.1"
+            value={linearX}
+            onChange={(e) => setLinearX(parseFloat(e.target.value) || 0)}
+            placeholder="linear_x"
+            style={{ width: 70, padding: 6, borderRadius: 4, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
+          />
+          <input
+            type="number"
+            step="0.1"
+            value={linearY}
+            onChange={(e) => setLinearY(parseFloat(e.target.value) || 0)}
+            placeholder="linear_y"
+            style={{ width: 70, padding: 6, borderRadius: 4, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
+          />
+          <input
+            type="number"
+            step="0.1"
+            value={angularZ}
+            onChange={(e) => setAngularZ(parseFloat(e.target.value) || 0)}
+            placeholder="angular_z"
+            style={{ width: 70, padding: 6, borderRadius: 4, border: '1px solid #334155', background: '#1e293b', color: '#e2e8f0' }}
+          />
+          <button
+            onClick={() => onCommand(robot.id, 'cmd_vel', { linear_x: linearX, linear_y: linearY, angular_z: angularZ })}
+            style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+          >
+            Drive
+          </button>
+        </div>
+      </div>
+      {jointStates.length > 0 && (
+        <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
+          <button
+            onClick={() => setJointStatesExpanded(!jointStatesExpanded)}
+            style={{
+              ...buttonBase,
+              background: 'transparent',
+              color: '#94a3b8',
+              padding: 0,
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            {jointStatesExpanded ? '▼' : '▶'} Joint States ({jointStates.length})
+          </button>
+          {jointStatesExpanded && (
+            <div style={{ marginTop: 8, maxHeight: 200, overflow: 'auto', fontSize: 11 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ color: '#64748b', borderBottom: '1px solid #334155' }}>
+                    <th style={{ textAlign: 'left', padding: 4 }}>name</th>
+                    <th style={{ textAlign: 'right', padding: 4 }}>pos</th>
+                    <th style={{ textAlign: 'right', padding: 4 }}>vel</th>
+                    <th style={{ textAlign: 'right', padding: 4 }}>eff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {jointStates.slice(0, 15).map((js, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: 4, color: '#e2e8f0' }}>{js.name}</td>
+                      <td style={{ padding: 4, textAlign: 'right', color: '#94a3b8' }}>{js.position?.toFixed(3) ?? '-'}</td>
+                      <td style={{ padding: 4, textAlign: 'right', color: '#94a3b8' }}>{js.velocity?.toFixed(3) ?? '-'}</td>
+                      <td style={{ padding: 4, textAlign: 'right', color: '#94a3b8' }}>{js.effort?.toFixed(3) ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {jointStates.length > 15 && (
+                <div style={{ marginTop: 4, color: '#64748b', fontSize: 10 }}>
+                  ... and {jointStates.length - 15} more
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -111,11 +199,15 @@ export default function App() {
     return () => es.close()
   }, [])
 
-  const sendCommand = async (robotId, command) => {
+  const sendCommand = async (robotId, command, payload) => {
+    const body = { command, operator_id: 'console' }
+    if (payload && Object.keys(payload).length > 0) {
+      body.payload = payload
+    }
     const res = await fetch(`${API_BASE}/robots/${robotId}/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command, operator_id: 'console' }),
+      body: JSON.stringify(body),
     })
     if (res.ok && command === 'safe_stop') {
       setSafeStopModal(null)
@@ -124,8 +216,8 @@ export default function App() {
     }
   }
 
-  const handleCommand = (robotId, command) => {
-    sendCommand(robotId, command)
+  const handleCommand = (robotId, command, payload) => {
+    sendCommand(robotId, command, payload)
   }
 
   const handleSafeStopClick = (robotId) => {
@@ -170,7 +262,7 @@ export default function App() {
             <p>Вы уверены? Отправить safe_stop для {safeStopModal}?</p>
             <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
               <button
-                onClick={() => sendCommand(safeStopModal, 'safe_stop')}
+                onClick={() => sendCommand(safeStopModal, 'safe_stop', null)}
                 style={{
                   padding: '8px 16px',
                   background: '#dc2626',

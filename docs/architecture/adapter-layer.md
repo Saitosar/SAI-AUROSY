@@ -17,7 +17,7 @@ All adapters implement the `RobotAdapter` interface:
 |--------|-------------|
 | `Connect(ctx)` | Establishes connection to the robot runtime (AimRT/ROS2) |
 | `SubscribeTelemetry(callback)` | Registers callback for telemetry; adapter invokes it on state updates |
-| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control`, `zero_mode`, `stand_mode`, `walk_mode` |
+| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control`, `zero_mode`, `stand_mode`, `walk_mode`, `cmd_vel` |
 | `Disconnect()` | Closes connection |
 
 ### Commands
@@ -29,10 +29,14 @@ All adapters implement the `RobotAdapter` interface:
 | `zero_mode` | Robot joints to zero position |
 | `stand_mode` | Standing pose |
 | `walk_mode` | Walking mode |
+| `cmd_vel` | Velocity command. Payload: `{ linear_x, linear_y, angular_z }` (m/s, rad/s) |
 
 ### Telemetry Callback
 
-The callback receives normalized `Telemetry` with: `robot_id`, `timestamp`, `online`, `actuator_status`, `imu`, `current_task`.
+The callback receives normalized `Telemetry` with: `robot_id`, `timestamp`, `online`, `actuator_status`, `imu`, `joint_states`, `current_task`.
+
+- `joint_states` — array of `{ name, position, velocity, effort }` per joint (from `/joint_states`).
+- `current_task` — heuristic from last mode command: `idle` (safe_stop), `zero` (zero_mode), `stand` (stand_mode), `walk` (walk_mode, cmd_vel).
 
 ## Adding New Vendors
 
