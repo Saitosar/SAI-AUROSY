@@ -11,9 +11,27 @@ const buttonBase = {
   fontSize: 14,
 }
 
-function RobotCard({ robot, telemetry, onCommand, onSafeStop }) {
+const MODE_HINTS = {
+  release_control: 'Передача управления джойстику оператора',
+  zero_mode: 'Суставы в нулевую позицию',
+  stand_mode: 'Стоячая поза',
+  walk_mode: 'Режим ходьбы',
+}
+
+const COMMAND_LABELS = {
+  release_control: 'Release',
+  zero_mode: 'Zero',
+  stand_mode: 'Stand',
+  walk_mode: 'Walk',
+  cmd_vel: 'Drive',
+  safe_stop: 'Safe Stop',
+}
+
+function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent }) {
   const t = telemetry[robot.id] || {}
   const online = t.online ?? false
+  const mockMode = t.mock_mode ?? false
+  const hasTelemetry = Object.keys(t).length > 0
   const actuatorStatus = t.actuator_status || 'unknown'
   const currentTask = t.current_task || '-'
   const jointStates = t.joint_states || []
@@ -39,53 +57,86 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop }) {
             {robot.vendor} / {robot.model}
           </span>
         </div>
-        <span
-          style={{
-            padding: '4px 8px',
-            borderRadius: 4,
-            fontSize: 12,
-            background: online ? '#065f46' : '#7f1d1d',
-            color: online ? '#6ee7b7' : '#fca5a5',
-          }}
-        >
-          {online ? 'Online' : 'Offline'}
-        </span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span
+            title={online ? 'Робот подключён, телеметрия поступает' : 'Робот отключён'}
+            style={{
+              padding: '4px 8px',
+              borderRadius: 4,
+              fontSize: 12,
+              background: online ? '#065f46' : '#7f1d1d',
+              color: online ? '#6ee7b7' : '#fca5a5',
+            }}
+          >
+            {online ? 'Online' : 'Offline'}
+          </span>
+          {hasTelemetry && (
+            <span
+              title={mockMode ? 'Симуляция: команды не идут на реального робота' : 'Режим Live: команды идут на робота'}
+              style={{
+                padding: '4px 8px',
+                borderRadius: 4,
+                fontSize: 12,
+                background: mockMode ? '#854d0e' : '#065f46',
+                color: mockMode ? '#fde047' : '#6ee7b7',
+              }}
+            >
+              {mockMode ? 'Mock' : 'Live'}
+            </span>
+          )}
+        </div>
       </div>
-      <div style={{ marginTop: 12, fontSize: 14, color: '#94a3b8' }}>
-        <div>Actuator: {actuatorStatus}</div>
-        <div>Task: {currentTask}</div>
+      <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase' }}>Состояние</div>
+        <div style={{ fontSize: 14, color: '#94a3b8' }}>
+          <div>Актуаторы: {actuatorStatus}</div>
+          <div>Режим: {currentTask}</div>
+          {lastCommandSent?.robotId === robot.id && (
+            <div style={{ marginTop: 6, fontSize: 12, color: '#22c55e' }}
+                 title="Команда отправлена на робота">
+              ✓ Отправлено: {COMMAND_LABELS[lastCommandSent.command] ?? lastCommandSent.command}
+            </div>
+          )}
+        </div>
       </div>
-      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        <button
-          onClick={() => onSafeStop(robot.id)}
-          style={{ ...buttonBase, background: '#dc2626', color: 'white', fontWeight: 600 }}
-        >
-          Safe Stop
-        </button>
-        <button
-          onClick={() => onCommand(robot.id, 'release_control')}
-          style={{ ...buttonBase, background: '#475569', color: 'white' }}
-        >
-          Release
-        </button>
-        <button
-          onClick={() => onCommand(robot.id, 'zero_mode')}
-          style={{ ...buttonBase, background: '#475569', color: 'white' }}
-        >
-          Zero
-        </button>
-        <button
-          onClick={() => onCommand(robot.id, 'stand_mode')}
-          style={{ ...buttonBase, background: '#475569', color: 'white' }}
-        >
-          Stand
-        </button>
-        <button
-          onClick={() => onCommand(robot.id, 'walk_mode')}
-          style={{ ...buttonBase, background: '#475569', color: 'white' }}
-        >
-          Walk
-        </button>
+      <div style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Команды</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button
+            onClick={() => onSafeStop(robot.id)}
+            style={{ ...buttonBase, background: '#dc2626', color: 'white', fontWeight: 600 }}
+          >
+            Safe Stop
+          </button>
+          <button
+            onClick={() => onCommand(robot.id, 'release_control')}
+            title={MODE_HINTS.release_control}
+            style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+          >
+            Release
+          </button>
+          <button
+            onClick={() => onCommand(robot.id, 'zero_mode')}
+            title={MODE_HINTS.zero_mode}
+            style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+          >
+            Zero
+          </button>
+          <button
+            onClick={() => onCommand(robot.id, 'stand_mode')}
+            title={MODE_HINTS.stand_mode}
+            style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+          >
+            Stand
+          </button>
+          <button
+            onClick={() => onCommand(robot.id, 'walk_mode')}
+            title={MODE_HINTS.walk_mode}
+            style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+          >
+            Walk
+          </button>
+        </div>
       </div>
       <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
         <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>cmd_vel (m/s, rad/s)</div>
@@ -179,6 +230,7 @@ export default function App() {
   const [telemetry, setTelemetry] = useState({})
   const [safeStopModal, setSafeStopModal] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [lastCommandSent, setLastCommandSent] = useState(null)
 
   useEffect(() => {
     fetch(`${API_BASE}/robots`)
@@ -209,9 +261,13 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (res.ok && command === 'safe_stop') {
-      setSafeStopModal(null)
-    } else if (!res.ok) {
+    if (res.ok) {
+      if (command === 'safe_stop') {
+        setSafeStopModal(null)
+      }
+      setLastCommandSent({ robotId, command })
+      setTimeout(() => setLastCommandSent(null), 2500)
+    } else {
       alert(`Failed to send ${command}`)
     }
   }
@@ -228,7 +284,10 @@ export default function App() {
 
   return (
     <div style={{ padding: 24, maxWidth: 600 }}>
-      <h1 style={{ marginBottom: 24 }}>SAI AUROSY Operator Console</h1>
+      <h1 style={{ marginBottom: 8 }}>SAI AUROSY Operator Console</h1>
+      <p style={{ fontSize: 12, color: '#64748b', marginBottom: 24 }}>
+        Online — подключение. Mock — симуляция без робота. Live — команды идут на робота. Батарея пока не поддерживается.
+      </p>
       {robots.map((r) => (
         <RobotCard
           key={r.id}
@@ -236,6 +295,7 @@ export default function App() {
           telemetry={telemetry}
           onCommand={handleCommand}
           onSafeStop={handleSafeStopClick}
+          lastCommandSent={lastCommandSent}
         />
       ))}
       {safeStopModal && (

@@ -19,7 +19,8 @@ docker compose up -d
 - NATS: `localhost:4222`
 - Control Plane: `http://localhost:8080`
 - Operator Console: `http://localhost:3000`
-- AGIBOT Adapter (mock): публикует телеметрию каждую секунду
+- AGIBOT Adapter (mock): публикует телеметрию x1-001 каждую секунду
+- Unitree Adapter (mock): публикует телеметрию go2-001 каждую секунду
 
 ## Запуск (локально)
 
@@ -44,6 +45,16 @@ export ROBOT_ID=x1-001
 export NATS_URL=nats://localhost:4222
 export AGIBOT_MOCK=1
 python pkg/adapters/agibot/adapter.py
+```
+
+### 3b. Unitree Adapter (mock)
+
+```bash
+pip install nats-py
+export ROBOT_ID=go2-001
+export NATS_URL=nats://localhost:4222
+export UNITREE_MOCK=1
+python pkg/adapters/unitree/adapter.py
 ```
 
 ### 4. Operator Console
@@ -80,3 +91,22 @@ npm run dev
    export NATS_URL=nats://localhost:4222
    python pkg/adapters/agibot/adapter.py
    ```
+
+## Unitree Go2 (реальный робот / unitree_ros2)
+
+Для работы с Go2 (реальный робот или unitree_ros2):
+
+1. Установить ROS2 Humble, собрать unitree_ros2 (cyclonedds_ws)
+2. Подключить робот по Ethernet (192.168.123.x) или использовать `setup_local.sh` для loopback
+3. Запустить адаптер **без** `UNITREE_MOCK`:
+   ```bash
+   pip install nats-py rclpy
+   source /opt/ros/humble/setup.bash
+   source /path/to/unitree_ros2/cyclonedds_ws/install/setup.bash
+   source /path/to/unitree_ros2/setup.sh
+   export ROBOT_ID=go2-001
+   export NATS_URL=nats://localhost:4222
+   python pkg/adapters/unitree/adapter.py
+   ```
+
+Альтернатива: unitree_sdk2_python для команд (без ROS2).

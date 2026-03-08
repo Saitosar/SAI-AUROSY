@@ -40,7 +40,8 @@ MOCK_MODE = os.environ.get("AGIBOT_MOCK", "0") == "1"
 
 
 def make_telemetry(robot_id: str, online: bool, actuator_status: str = "enabled",
-                   imu: dict = None, joint_states: list = None, current_task: str = "idle") -> dict:
+                   imu: dict = None, joint_states: list = None, current_task: str = "idle",
+                   mock_mode: bool = False) -> dict:
     t = {
         "robot_id": robot_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -48,6 +49,7 @@ def make_telemetry(robot_id: str, online: bool, actuator_status: str = "enabled"
         "actuator_status": actuator_status,
         "imu": imu,
         "current_task": current_task,
+        "mock_mode": mock_mode,
     }
     if joint_states:
         t["joint_states"] = joint_states
@@ -76,7 +78,8 @@ class AgibotAdapter:
         self.nats_nc = await nats.connect(self.nats_url)
         print(f"[agibot] Connected to NATS at {self.nats_url}")
 
-    async def publish_telemetry(self, online: bool = True, actuator_status: str = "enabled"):
+    async def publish_telemetry(self, online: bool = True, actuator_status: str = "enabled",
+                                mock_mode: bool = False):
         if not self.nats_nc:
             return
         with self._lock:
@@ -90,6 +93,7 @@ class AgibotAdapter:
             imu=imu,
             joint_states=joint_states if joint_states else None,
             current_task=current_task,
+            mock_mode=mock_mode,
         )
         await self.nats_nc.publish(f"telemetry.robots.{self.robot_id}", json.dumps(t).encode())
 
@@ -210,7 +214,7 @@ class AgibotAdapter:
         )
         print(f"[{self.robot_id}] Mock mode: publishing telemetry every 1s")
         while True:
-            await self.publish_telemetry(online=True, actuator_status="enabled")
+            await self.publish_telemetry(online=True, actuator_status="enabled", mock_mode=True)
             await asyncio.sleep(1)
 
 
@@ -241,7 +245,11 @@ async def run_nats_loop(adapter: AgibotAdapter):
     while True:
         with adapter._lock:
             online = (time.time() - adapter.last_joint_time) < 2.0
-        await adapter.publish_telemetry(online=online, actuator_status="enabled" if online else "unknown")
+        await adapter.publish_telemetry(
+            online=online,
+            actuator_status="enabled" if online else "unknown",
+            mock_mode=False,
+        )
         await asyncio.sleep(0.5)
 
 

@@ -4,7 +4,7 @@
 
 - [x] Unified Robot API (HAL, RobotAdapter interface)
 - [x] AGIBOT adapter (Status + Safe Stop)
-- [ ] UNITREE adapter
+- [x] UNITREE adapter
 - [x] Fleet management (Fleet Registry)
 - [x] Operator dashboard (Operator Console)
 - [x] Task execution engine (Command Arbiter, Safety Supervisor)
