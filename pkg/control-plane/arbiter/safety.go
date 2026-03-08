@@ -10,6 +10,8 @@ func SafetyAllow(cmd *hal.Command) bool {
 		return true
 	case "release_control":
 		return true
+	case "zero_mode", "stand_mode", "walk_mode":
+		return true
 	default:
 		return false
 	}
