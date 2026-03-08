@@ -213,9 +213,10 @@ X1 Infer использует **ROS2 Plugin** AimRT. Топики публику
 | `online` | Наличие сообщений от `/joint_states` (heartbeat) |
 | `actuator_status` | Выводится из `joint_states.effort` или статуса подключения |
 | `imu` | `/imu/data` (orientation, angular_velocity) |
-| `current_task` | Состояние RL: idle / keep / zero / stand / walk_leg / walk_leg_arm |
+| `joint_states` | `/joint_states` (name, position, velocity, effort) |
+| `current_task` | Эвристика по последней команде: safe_stop→idle, zero_mode→zero, stand_mode→stand, walk_mode→walk, cmd_vel→walk |
 
-**Примечание:** Точное состояние (current_task) не публикуется в ROS2. Для MVP можно определять по активности `/joint_cmd` или использовать заглушку.
+**Примечание:** Точное состояние RL (idle/keep/zero/stand/walk_leg/walk_leg_arm) не публикуется в ROS2. SAI-AUROSY использует эвристику по последней отправленной команде режима.
 
 ### Требования для подключения
 

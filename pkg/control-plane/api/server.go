@@ -48,8 +48,9 @@ func (s *Server) getRobot(w http.ResponseWriter, r *http.Request) {
 }
 
 type commandRequest struct {
-	Command    string `json:"command"`
-	OperatorID string `json:"operator_id"`
+	Command    string         `json:"command"`
+	Payload    map[string]any `json:"payload,omitempty"`
+	OperatorID string         `json:"operator_id"`
 }
 
 func (s *Server) sendCommand(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +71,14 @@ func (s *Server) sendCommand(w http.ResponseWriter, r *http.Request) {
 		Command:    req.Command,
 		Timestamp:  time.Now(),
 		OperatorID: req.OperatorID,
+	}
+	if len(req.Payload) > 0 {
+		payloadBytes, err := json.Marshal(req.Payload)
+		if err != nil {
+			http.Error(w, "invalid payload", http.StatusBadRequest)
+			return
+		}
+		cmd.Payload = payloadBytes
 	}
 	if !arbiter.SafetyAllow(cmd) {
 		http.Error(w, "command not allowed", http.StatusForbidden)

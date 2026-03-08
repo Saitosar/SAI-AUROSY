@@ -2,7 +2,7 @@
 """
 AGIBOT X1 Adapter - bridges ROS2 (X1 Infer) and SAI-AUROSY Telemetry Bus (NATS).
 
-ROS2: subscribes to /joint_states, /imu/data; publishes to /start_control, /zero_mode, /stand_mode, /walk_mode
+ROS2: subscribes to /joint_states, /imu/data; publishes to /start_control, /zero_mode, /stand_mode, /walk_mode, /cmd_vel
 NATS: publishes telemetry.robots.{robot_id}; subscribes to commands.robots.{robot_id}
 
 Usage:
@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 try:
     import rclpy
     from rclpy.node import Node
+    from geometry_msgs.msg import Twist
     from sensor_msgs.msg import JointState, Imu
     from std_msgs.msg import Empty
     HAS_ROS2 = True
@@ -39,8 +40,8 @@ MOCK_MODE = os.environ.get("AGIBOT_MOCK", "0") == "1"
 
 
 def make_telemetry(robot_id: str, online: bool, actuator_status: str = "enabled",
-                   imu: dict = None, current_task: str = "idle") -> dict:
-    return {
+                   imu: dict = None, joint_states: list = None, current_task: str = "idle") -> dict:
+    t = {
         "robot_id": robot_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "online": online,
@@ -48,6 +49,9 @@ def make_telemetry(robot_id: str, online: bool, actuator_status: str = "enabled"
         "imu": imu,
         "current_task": current_task,
     }
+    if joint_states:
+        t["joint_states"] = joint_states
+    return t
 
 
 class AgibotAdapter:
@@ -61,6 +65,9 @@ class AgibotAdapter:
         self.zero_mode_pub = None
         self.stand_mode_pub = None
         self.walk_mode_pub = None
+        self.cmd_vel_pub = None
+        self.last_joint_states = []
+        self.last_mode_command = "idle"
         self._lock = threading.Lock()
 
     async def connect_nats(self):
@@ -74,18 +81,35 @@ class AgibotAdapter:
             return
         with self._lock:
             imu = self.last_imu
+            joint_states = list(self.last_joint_states)
+            current_task = self.last_mode_command
         t = make_telemetry(
             self.robot_id,
             online=online,
             actuator_status=actuator_status,
             imu=imu,
-            current_task="idle",
+            joint_states=joint_states if joint_states else None,
+            current_task=current_task,
         )
         await self.nats_nc.publish(f"telemetry.robots.{self.robot_id}", json.dumps(t).encode())
 
     def on_joint_states(self, msg):
+        states = []
+        names = list(msg.name) if msg.name else []
+        positions = list(msg.position) if msg.position else []
+        velocities = list(msg.velocity) if msg.velocity else []
+        efforts = list(msg.effort) if msg.effort else []
+        n = len(names)
+        for i in range(n):
+            states.append({
+                "name": names[i] if i < len(names) else "",
+                "position": float(positions[i]) if i < len(positions) else 0.0,
+                "velocity": float(velocities[i]) if i < len(velocities) else 0.0,
+                "effort": float(efforts[i]) if i < len(efforts) else 0.0,
+            })
         with self._lock:
             self.last_joint_time = time.time()
+            self.last_joint_states = states
 
     def on_imu(self, msg):
         with self._lock:
@@ -129,19 +153,50 @@ class AgibotAdapter:
         else:
             print(f"[{self.robot_id}] walk_mode (mock)")
 
+    def publish_cmd_vel(self, linear_x: float, linear_y: float, angular_z: float):
+        if self.cmd_vel_pub and HAS_ROS2:
+            twist = Twist()
+            twist.linear.x = float(linear_x)
+            twist.linear.y = float(linear_y)
+            twist.linear.z = 0.0
+            twist.angular.x = 0.0
+            twist.angular.y = 0.0
+            twist.angular.z = float(angular_z)
+            self.cmd_vel_pub.publish(twist)
+            print(f"[{self.robot_id}] cmd_vel -> /cmd_vel linear_x={linear_x} linear_y={linear_y} angular_z={angular_z}")
+        else:
+            print(f"[{self.robot_id}] cmd_vel (mock) linear_x={linear_x} linear_y={linear_y} angular_z={angular_z}")
+
+    def _set_last_mode(self, mode: str):
+        with self._lock:
+            self.last_mode_command = mode
+
     async def handle_command(self, msg):
         data = json.loads(msg.data.decode())
         cmd = data.get("command")
         if cmd == "safe_stop":
+            self._set_last_mode("idle")
             self.publish_safe_stop()
         elif cmd == "release_control":
             print(f"[{self.robot_id}] release_control (platform stops sending; operator uses joystick)")
         elif cmd == "zero_mode":
+            self._set_last_mode("zero")
             self.publish_zero_mode()
         elif cmd == "stand_mode":
+            self._set_last_mode("stand")
             self.publish_stand_mode()
         elif cmd == "walk_mode":
+            self._set_last_mode("walk")
             self.publish_walk_mode()
+        elif cmd == "cmd_vel":
+            with self._lock:
+                if self.last_mode_command == "idle":
+                    self.last_mode_command = "walk"
+            payload = data.get("payload") or {}
+            linear_x = float(payload.get("linear_x", 0))
+            linear_y = float(payload.get("linear_y", 0))
+            angular_z = float(payload.get("angular_z", 0))
+            self.publish_cmd_vel(linear_x, linear_y, angular_z)
 
     async def run_mock(self):
         await self.connect_nats()
@@ -170,6 +225,7 @@ if HAS_ROS2:
             adapter.zero_mode_pub = self.create_publisher(Empty, "/zero_mode", 10)
             adapter.stand_mode_pub = self.create_publisher(Empty, "/stand_mode", 10)
             adapter.walk_mode_pub = self.create_publisher(Empty, "/walk_mode", 10)
+            adapter.cmd_vel_pub = self.create_publisher(Twist, "/cmd_vel", 10)
             self.get_logger().info(f"AGIBOT adapter ROS2, robot_id={adapter.robot_id}")
 
 

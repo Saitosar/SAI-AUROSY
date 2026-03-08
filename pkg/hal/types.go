@@ -1,6 +1,9 @@
 package hal
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // Robot represents a robot in the fleet registry.
 type Robot struct {
@@ -13,14 +16,23 @@ type Robot struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+// JointStateData holds position, velocity, effort for one joint.
+type JointStateData struct {
+	Name     string  `json:"name"`
+	Position float64 `json:"position"`
+	Velocity float64 `json:"velocity"`
+	Effort   float64 `json:"effort"`
+}
+
 // Telemetry is the normalized telemetry payload published to the Telemetry Bus.
 type Telemetry struct {
-	RobotID         string    `json:"robot_id"`
-	Timestamp       time.Time `json:"timestamp"`
-	Online          bool      `json:"online"`
-	ActuatorStatus  string    `json:"actuator_status"` // enabled, disabled, error, calibration
-	IMU             *IMUData  `json:"imu,omitempty"`
-	CurrentTask     string    `json:"current_task"` // idle, standing, walking
+	RobotID        string            `json:"robot_id"`
+	Timestamp      time.Time         `json:"timestamp"`
+	Online         bool              `json:"online"`
+	ActuatorStatus string            `json:"actuator_status"` // enabled, disabled, error, calibration
+	IMU            *IMUData          `json:"imu,omitempty"`
+	JointStates    []JointStateData  `json:"joint_states,omitempty"`
+	CurrentTask    string            `json:"current_task"` // idle, zero, stand, walk
 }
 
 // IMUData holds orientation and angular velocity from IMU.
@@ -31,8 +43,9 @@ type IMUData struct {
 
 // Command represents a command sent to a robot.
 type Command struct {
-	RobotID   string    `json:"robot_id"`
-	Command   string    `json:"command"` // safe_stop, release_control
-	Timestamp time.Time `json:"timestamp"`
-	OperatorID string   `json:"operator_id,omitempty"`
+	RobotID    string          `json:"robot_id"`
+	Command    string          `json:"command"` // safe_stop, release_control, cmd_vel, ...
+	Payload    json.RawMessage `json:"payload,omitempty"` // for cmd_vel: {"linear_x":0.5,"linear_y":0,"angular_z":0.1}
+	Timestamp  time.Time       `json:"timestamp"`
+	OperatorID string          `json:"operator_id,omitempty"`
 }
