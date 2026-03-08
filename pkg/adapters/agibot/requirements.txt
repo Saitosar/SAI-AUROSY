@@ -1,0 +1,5 @@
+rclpy>=3.3.0
+nats-py>=2.6.0
+std_msgs
+sensor_msgs
+geometry_msgs

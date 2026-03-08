@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build
+build/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+*.local
+
+# Logs
+*.log
+log/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# External repos (reference only)
+AGIBOT_x1_infer/
