@@ -17,7 +17,7 @@ All adapters implement the `RobotAdapter` interface:
 |--------|-------------|
 | `Connect(ctx)` | Establishes connection to the robot runtime (AimRT/ROS2) |
 | `SubscribeTelemetry(callback)` | Registers callback for telemetry; adapter invokes it on state updates |
-| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control` |
+| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control`, `zero_mode`, `stand_mode`, `walk_mode` |
 | `Disconnect()` | Closes connection |
 
 ### Commands
@@ -26,6 +26,9 @@ All adapters implement the `RobotAdapter` interface:
 |---------|-------------|
 | `safe_stop` | Emergency stop; robot transitions to idle (no torque) |
 | `release_control` | Release platform control; operator takes over via joystick |
+| `zero_mode` | Robot joints to zero position |
+| `stand_mode` | Standing pose |
+| `walk_mode` | Walking mode |
 
 ### Telemetry Callback
 

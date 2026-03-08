@@ -2,7 +2,7 @@
 """
 AGIBOT X1 Adapter - bridges ROS2 (X1 Infer) and SAI-AUROSY Telemetry Bus (NATS).
 
-ROS2: subscribes to /joint_states, /imu/data; publishes to /start_control for safe_stop
+ROS2: subscribes to /joint_states, /imu/data; publishes to /start_control, /zero_mode, /stand_mode, /walk_mode
 NATS: publishes telemetry.robots.{robot_id}; subscribes to commands.robots.{robot_id}
 
 Usage:
@@ -58,6 +58,9 @@ class AgibotAdapter:
         self.last_joint_time = 0.0
         self.last_imu = None
         self.safe_stop_pub = None
+        self.zero_mode_pub = None
+        self.stand_mode_pub = None
+        self.walk_mode_pub = None
         self._lock = threading.Lock()
 
     async def connect_nats(self):
@@ -105,10 +108,40 @@ class AgibotAdapter:
         else:
             print(f"[{self.robot_id}] safe_stop (mock)")
 
+    def publish_zero_mode(self):
+        if self.zero_mode_pub:
+            self.zero_mode_pub.publish(Empty())
+            print(f"[{self.robot_id}] zero_mode -> /zero_mode")
+        else:
+            print(f"[{self.robot_id}] zero_mode (mock)")
+
+    def publish_stand_mode(self):
+        if self.stand_mode_pub:
+            self.stand_mode_pub.publish(Empty())
+            print(f"[{self.robot_id}] stand_mode -> /stand_mode")
+        else:
+            print(f"[{self.robot_id}] stand_mode (mock)")
+
+    def publish_walk_mode(self):
+        if self.walk_mode_pub:
+            self.walk_mode_pub.publish(Empty())
+            print(f"[{self.robot_id}] walk_mode -> /walk_mode")
+        else:
+            print(f"[{self.robot_id}] walk_mode (mock)")
+
     async def handle_command(self, msg):
         data = json.loads(msg.data.decode())
-        if data.get("command") == "safe_stop":
+        cmd = data.get("command")
+        if cmd == "safe_stop":
             self.publish_safe_stop()
+        elif cmd == "release_control":
+            print(f"[{self.robot_id}] release_control (platform stops sending; operator uses joystick)")
+        elif cmd == "zero_mode":
+            self.publish_zero_mode()
+        elif cmd == "stand_mode":
+            self.publish_stand_mode()
+        elif cmd == "walk_mode":
+            self.publish_walk_mode()
 
     async def run_mock(self):
         await self.connect_nats()
@@ -126,14 +159,18 @@ class AgibotAdapter:
             await asyncio.sleep(1)
 
 
-class AgibotROS2Node(Node):
-    def __init__(self, adapter: AgibotAdapter):
-        super().__init__("agibot_adapter")
-        self.adapter = adapter
-        self.create_subscription(JointState, "/joint_states", adapter.on_joint_states, 10)
-        self.create_subscription(Imu, "/imu/data", adapter.on_imu, 10)
-        adapter.safe_stop_pub = self.create_publisher(Empty, "/start_control", 10)
-        self.get_logger().info(f"AGIBOT adapter ROS2, robot_id={adapter.robot_id}")
+if HAS_ROS2:
+    class AgibotROS2Node(Node):
+        def __init__(self, adapter: AgibotAdapter):
+            super().__init__("agibot_adapter")
+            self.adapter = adapter
+            self.create_subscription(JointState, "/joint_states", adapter.on_joint_states, 10)
+            self.create_subscription(Imu, "/imu/data", adapter.on_imu, 10)
+            adapter.safe_stop_pub = self.create_publisher(Empty, "/start_control", 10)
+            adapter.zero_mode_pub = self.create_publisher(Empty, "/zero_mode", 10)
+            adapter.stand_mode_pub = self.create_publisher(Empty, "/stand_mode", 10)
+            adapter.walk_mode_pub = self.create_publisher(Empty, "/walk_mode", 10)
+            self.get_logger().info(f"AGIBOT adapter ROS2, robot_id={adapter.robot_id}")
 
 
 async def run_nats_loop(adapter: AgibotAdapter):

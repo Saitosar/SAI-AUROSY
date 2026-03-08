@@ -3,7 +3,15 @@ import { useState, useEffect } from 'react'
 const API_BASE = '/api'
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4222'
 
-function RobotCard({ robot, telemetry, onSafeStop }) {
+const buttonBase = {
+  padding: '8px 16px',
+  border: 'none',
+  borderRadius: 6,
+  cursor: 'pointer',
+  fontSize: 14,
+}
+
+function RobotCard({ robot, telemetry, onCommand, onSafeStop }) {
   const t = telemetry[robot.id] || {}
   const online = t.online ?? false
   const actuatorStatus = t.actuator_status || 'unknown'
@@ -42,21 +50,38 @@ function RobotCard({ robot, telemetry, onSafeStop }) {
         <div>Actuator: {actuatorStatus}</div>
         <div>Task: {currentTask}</div>
       </div>
-      <button
-        onClick={() => onSafeStop(robot.id)}
-        style={{
-          marginTop: 12,
-          padding: '8px 16px',
-          background: '#dc2626',
-          color: 'white',
-          border: 'none',
-          borderRadius: 6,
-          cursor: 'pointer',
-          fontWeight: 600,
-        }}
-      >
-        Safe Stop
-      </button>
+      <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <button
+          onClick={() => onSafeStop(robot.id)}
+          style={{ ...buttonBase, background: '#dc2626', color: 'white', fontWeight: 600 }}
+        >
+          Safe Stop
+        </button>
+        <button
+          onClick={() => onCommand(robot.id, 'release_control')}
+          style={{ ...buttonBase, background: '#475569', color: 'white' }}
+        >
+          Release
+        </button>
+        <button
+          onClick={() => onCommand(robot.id, 'zero_mode')}
+          style={{ ...buttonBase, background: '#475569', color: 'white' }}
+        >
+          Zero
+        </button>
+        <button
+          onClick={() => onCommand(robot.id, 'stand_mode')}
+          style={{ ...buttonBase, background: '#475569', color: 'white' }}
+        >
+          Stand
+        </button>
+        <button
+          onClick={() => onCommand(robot.id, 'walk_mode')}
+          style={{ ...buttonBase, background: '#475569', color: 'white' }}
+        >
+          Walk
+        </button>
+      </div>
     </div>
   )
 }
@@ -86,17 +111,21 @@ export default function App() {
     return () => es.close()
   }, [])
 
-  const sendSafeStop = async (robotId) => {
+  const sendCommand = async (robotId, command) => {
     const res = await fetch(`${API_BASE}/robots/${robotId}/command`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command: 'safe_stop', operator_id: 'console' }),
+      body: JSON.stringify({ command, operator_id: 'console' }),
     })
-    if (res.ok) {
+    if (res.ok && command === 'safe_stop') {
       setSafeStopModal(null)
-    } else {
-      alert('Failed to send safe_stop')
+    } else if (!res.ok) {
+      alert(`Failed to send ${command}`)
     }
+  }
+
+  const handleCommand = (robotId, command) => {
+    sendCommand(robotId, command)
   }
 
   const handleSafeStopClick = (robotId) => {
@@ -113,6 +142,7 @@ export default function App() {
           key={r.id}
           robot={r}
           telemetry={telemetry}
+          onCommand={handleCommand}
           onSafeStop={handleSafeStopClick}
         />
       ))}
@@ -140,7 +170,7 @@ export default function App() {
             <p>Вы уверены? Отправить safe_stop для {safeStopModal}?</p>
             <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
               <button
-                onClick={() => sendSafeStop(safeStopModal)}
+                onClick={() => sendCommand(safeStopModal, 'safe_stop')}
                 style={{
                   padding: '8px 16px',
                   background: '#dc2626',
