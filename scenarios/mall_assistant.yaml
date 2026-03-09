@@ -1,0 +1,16 @@
+scenario_id: mall_assistant
+name: Mall Assistant & Guide
+description: Interactive assistant in a shopping mall. Greets visitors, answers store-location questions, guides to stores, and returns to standby.
+steps:
+  - greet_visitor
+  - listen_request
+  - understand_intent
+  - lookup_store
+  - navigate_to_store
+  - announce_arrival
+  - return_to_base
+required_capabilities:
+  - walk
+  - stand
+  - navigation
+  - speech

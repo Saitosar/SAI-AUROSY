@@ -22,6 +22,8 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/coordinator"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
 	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
+	"github.com/sai-aurosy/platform/internal/mall"
+	"github.com/sai-aurosy/platform/pkg/control-plane/mallassistant"
 	"github.com/sai-aurosy/platform/pkg/control-plane/marketplace"
 	"github.com/sai-aurosy/platform/pkg/control-plane/orchestration"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
@@ -33,6 +35,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/tenants"
 	"github.com/sai-aurosy/platform/pkg/hal"
 	"github.com/sai-aurosy/platform/pkg/telemetry"
+	"github.com/sai-aurosy/platform/internal/robot"
 )
 
 // Server is the Control Plane API server.
@@ -59,11 +62,14 @@ type Server struct {
 	conversationCatalog *conversations.Catalog
 	marketplaceStore    marketplace.Store
 	idempotencyStore    commands.Store
-	eventBroadcaster    *events.Broadcaster
+	eventBroadcaster     *events.Broadcaster
+	mallAssistantHandler *mallassistant.Handler
+	mallService          *mall.Service
+	robotStateProvider   robot.RobotStateProvider
 }
 
-// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, and conversationCatalog are optional.
-func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster) *Server {
+// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, conversationCatalog, mallAssistantHandler, mallService, and robotStateProvider are optional.
+func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster, mallAssistantHandler *mallassistant.Handler, mallService *mall.Service, robotStateProvider robot.RobotStateProvider) *Server {
 	var apiKeyManager auth.APIKeyManager
 	if apiKeyStore != nil {
 		apiKeyManager, _ = apiKeyStore.(auth.APIKeyManager)
@@ -90,8 +96,11 @@ func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeySt
 		cognitiveGateway:   cognitiveGateway,
 		conversationCatalog: conversationCatalog,
 		marketplaceStore:   marketplaceStore,
-		idempotencyStore:  idempotencyStore,
-		eventBroadcaster:  eventBroadcaster,
+		idempotencyStore:     idempotencyStore,
+		eventBroadcaster:     eventBroadcaster,
+		mallAssistantHandler: mallAssistantHandler,
+		mallService:          mallService,
+		robotStateProvider:  robotStateProvider,
 	}
 }
 
@@ -115,6 +124,7 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/robots", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.listRobots)))).Methods("GET")
 	v1.Handle("/robots", jwtMW(adminOnly(http.HandlerFunc(s.createRobot)))).Methods("POST")
 	v1.Handle("/robots/{id}", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getRobot)))).Methods("GET")
+	v1.Handle("/robots/{id}/state", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getRobotState)))).Methods("GET")
 	v1.Handle("/robots/{id}", jwtMW(adminOnly(http.HandlerFunc(s.updateRobot)))).Methods("PUT")
 	v1.Handle("/robots/{id}", jwtMW(adminOnly(http.HandlerFunc(s.deleteRobot)))).Methods("DELETE")
 	v1.Handle("/robots/{id}/command", jwtMW(opOrAdmin(http.HandlerFunc(s.sendCommand)))).Methods("POST")
@@ -131,6 +141,8 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/scenarios/{id}", jwtMW(opOrAdmin(http.HandlerFunc(s.getScenario)))).Methods("GET")
 	v1.Handle("/scenarios/{id}", jwtMW(adminOnly(http.HandlerFunc(s.updateScenario)))).Methods("PUT")
 	v1.Handle("/scenarios/{id}", jwtMW(adminOnly(http.HandlerFunc(s.deleteScenario)))).Methods("DELETE")
+	v1.Handle("/scenarios/mall_assistant/start", jwtMW(opOrAdmin(http.HandlerFunc(s.mallAssistantStart)))).Methods("POST")
+	v1.Handle("/scenarios/mall_assistant/visitor-request", jwtMW(opOrAdmin(http.HandlerFunc(s.mallAssistantVisitorRequest)))).Methods("POST")
 	v1.Handle("/tasks", jwtMW(opOrAdmin(http.HandlerFunc(s.listTasks)))).Methods("GET")
 	v1.Handle("/tasks", jwtMW(opOrAdmin(http.HandlerFunc(s.createTask)))).Methods("POST")
 	v1.Handle("/tasks/{id}", jwtMW(opOrAdmin(http.HandlerFunc(s.getTask)))).Methods("GET")
@@ -175,6 +187,12 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/cognitive/transcribe", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveTranscribe)))).Methods("POST")
 	v1.Handle("/cognitive/synthesize", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveSynthesize)))).Methods("POST")
 	v1.Handle("/cognitive/understand-intent", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveUnderstandIntent)))).Methods("POST")
+	if s.mallService != nil {
+		v1.Handle("/malls/{mall_id}/map", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getMallMap)))).Methods("GET")
+		v1.Handle("/malls/{mall_id}/stores", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.listMallStores)))).Methods("GET")
+		v1.Handle("/malls/{mall_id}/stores/{store_name}", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getMallStore)))).Methods("GET")
+		v1.Handle("/malls/{mall_id}/route", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getMallRoute)))).Methods("GET")
+	}
 	if s.conversationCatalog != nil {
 		v1.Handle("/conversations", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.listConversations)))).Methods("GET")
 		v1.Handle("/conversations", jwtMW(adminOnly(http.HandlerFunc(s.createConversation)))).Methods("POST")
@@ -289,6 +307,40 @@ func (s *Server) getRobot(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(robot)
+}
+
+func (s *Server) getRobotState(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	rb := s.registry.Get(id)
+	if rb == nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if tenantID != "" && rb.TenantID != tenantID {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	var state *robot.RobotStateResponse
+	if s.robotStateProvider != nil {
+		state = s.robotStateProvider.GetRobotState(id)
+	} else {
+		state = &robot.RobotStateResponse{
+			RobotID:       id,
+			State:         string(robot.StateIdle),
+			StatusMessage: "idle",
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
 }
 
 func (s *Server) listTenants(w http.ResponseWriter, r *http.Request) {
@@ -1985,6 +2037,138 @@ func (s *Server) deleteScenario(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type mallAssistantStartRequest struct {
+	RobotID    string `json:"robot_id"`
+	OperatorID string `json:"operator_id"`
+}
+
+func (s *Server) mallAssistantStart(w http.ResponseWriter, r *http.Request) {
+	if s.mallAssistantHandler == nil {
+		http.Error(w, "mall assistant not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req mallAssistantStartRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	robot := s.registry.Get(req.RobotID)
+	if robot == nil {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	if tenantID != "" && robot.TenantID != tenantID {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	scenario, ok := s.scenarioCatalog.GetForTenant("mall_assistant", tenantID)
+	if !ok {
+		http.Error(w, "mall_assistant scenario not found", http.StatusNotFound)
+		return
+	}
+	if !hal.HasCapability(robot, scenario.RequiredCapabilities) {
+		http.Error(w, "robot lacks required capabilities for mall assistant", http.StatusBadRequest)
+		return
+	}
+	hasRunning, err := s.taskStore.HasRunningForRobot(req.RobotID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if hasRunning {
+		http.Error(w, "robot already has a running task", http.StatusConflict)
+		return
+	}
+	operatorID := req.OperatorID
+	if operatorID == "" {
+		operatorID = "console"
+	}
+	taskTenantID := robot.TenantID
+	if taskTenantID == "" {
+		taskTenantID = "default"
+	}
+	t := &tasks.Task{
+		ID:         uuid.New().String(),
+		RobotID:    req.RobotID,
+		TenantID:   taskTenantID,
+		Type:       "scenario",
+		ScenarioID: "mall_assistant",
+		Status:     tasks.StatusPending,
+		OperatorID: operatorID,
+	}
+	if err := s.taskStore.Create(t); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if s.auditStore != nil {
+		_ = s.auditStore.Append(r.Context(), &audit.Entry{
+			Actor:      auditActor(operatorID),
+			Action:     "create",
+			Resource:   "task",
+			ResourceID: t.ID,
+			TenantID:   t.TenantID,
+			Timestamp:  time.Now(),
+			Details:    `{"robot_id":"` + t.RobotID + `","scenario_id":"mall_assistant"}`,
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(t)
+}
+
+type mallAssistantVisitorRequestPayload struct {
+	RobotID string `json:"robot_id"`
+	Text    string `json:"text"`
+}
+
+func (s *Server) mallAssistantVisitorRequest(w http.ResponseWriter, r *http.Request) {
+	if s.mallAssistantHandler == nil {
+		http.Error(w, "mall assistant not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req mallAssistantVisitorRequestPayload
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	if req.Text == "" {
+		http.Error(w, "text required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	robot := s.registry.Get(req.RobotID)
+	if robot == nil {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	if tenantID != "" && robot.TenantID != tenantID {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	if !s.mallAssistantHandler.SubmitVisitorRequest(req.RobotID, req.Text) {
+		http.Error(w, "no active mall assistant for this robot", http.StatusConflict)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"status": "accepted"})
+}
+
 type createTaskRequest struct {
 	RobotID    string          `json:"robot_id"`
 	ScenarioID string          `json:"scenario_id"`
@@ -2531,6 +2715,141 @@ func (s *Server) edgeHeartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"pending_commands": pending})
+}
+
+func (s *Server) getMallMap(w http.ResponseWriter, r *http.Request) {
+	if s.mallService == nil {
+		http.Error(w, "mall service not configured", http.StatusServiceUnavailable)
+		return
+	}
+	_, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	mallID := vars["mall_id"]
+	if mallID == "" {
+		http.Error(w, "mall_id required", http.StatusBadRequest)
+		return
+	}
+	m, err := s.mallService.GetMallMap(r.Context(), mallID)
+	if err != nil {
+		if errors.Is(err, mall.ErrMallNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(m)
+}
+
+func (s *Server) listMallStores(w http.ResponseWriter, r *http.Request) {
+	if s.mallService == nil {
+		http.Error(w, "mall service not configured", http.StatusServiceUnavailable)
+		return
+	}
+	_, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	mallID := vars["mall_id"]
+	if mallID == "" {
+		http.Error(w, "mall_id required", http.StatusBadRequest)
+		return
+	}
+	stores, err := s.mallService.ListStores(r.Context(), mallID)
+	if err != nil {
+		if errors.Is(err, mall.ErrMallNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stores)
+}
+
+func (s *Server) getMallStore(w http.ResponseWriter, r *http.Request) {
+	if s.mallService == nil {
+		http.Error(w, "mall service not configured", http.StatusServiceUnavailable)
+		return
+	}
+	_, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	mallID := vars["mall_id"]
+	storeName := vars["store_name"]
+	if mallID == "" || storeName == "" {
+		http.Error(w, "mall_id and store_name required", http.StatusBadRequest)
+		return
+	}
+	node, err := s.mallService.FindStoreNode(r.Context(), mallID, storeName)
+	if err != nil {
+		if errors.Is(err, mall.ErrStoreNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, mall.ErrMallNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	m, _ := s.mallService.GetMallMap(r.Context(), mallID)
+	var sl mall.StoreLocation
+	for _, st := range m.Stores {
+		if st.NodeID == node.ID {
+			sl = st
+			break
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"store_name": sl.StoreName,
+		"floor_id":   sl.FloorID,
+		"zone":       sl.Zone,
+		"node":       node,
+	})
+}
+
+func (s *Server) getMallRoute(w http.ResponseWriter, r *http.Request) {
+	if s.mallService == nil {
+		http.Error(w, "mall service not configured", http.StatusServiceUnavailable)
+		return
+	}
+	_, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	mallID := vars["mall_id"]
+	fromID := r.URL.Query().Get("from")
+	toID := r.URL.Query().Get("to")
+	if mallID == "" || fromID == "" || toID == "" {
+		http.Error(w, "mall_id, from, and to query params required", http.StatusBadRequest)
+		return
+	}
+	route, dist, err := s.mallService.CalculateRoute(r.Context(), mallID, fromID, toID)
+	if err != nil {
+		if errors.Is(err, mall.ErrMallNotFound) || errors.Is(err, mall.ErrPathNotFound) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"route":             route,
+		"estimated_distance": dist,
+	})
 }
 
 func parseTimeRange(r *http.Request, defaultRange time.Duration) (from, to time.Time) {

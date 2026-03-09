@@ -16,27 +16,41 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// MallAssistantRunner runs the mall_assistant scenario (optional).
+type MallAssistantRunner interface {
+	Run(ctx context.Context, taskID, robotID, tenantID, operatorID string)
+}
+
+// ExecutionEngine runs navigation tasks (navigate_to_store, return to base). Optional.
+type ExecutionEngine interface {
+	ExecuteTaskEntry(ctx context.Context, task *Task) bool
+}
+
 // Runner executes pending tasks by expanding scenarios and sending commands via the bus.
 type Runner struct {
-	taskStore       Store
-	scenarioCatalog *scenarios.Catalog
-	registry        registry.Store
-	bus             *telemetry.Bus
-	coordinator     *coordinator.Coordinator
-	pollInterval    time.Duration
-	onTaskCompleted func(taskID, robotID, status string)
-	onTaskStarted   func(taskID, robotID, scenarioID, zoneID string)
-	onZoneAcquired  func(robotID, zoneID, taskID string)
-	onZoneReleased  func(robotID, zoneID, taskID string)
+	taskStore           Store
+	scenarioCatalog     *scenarios.Catalog
+	registry            registry.Store
+	bus                 *telemetry.Bus
+	coordinator         *coordinator.Coordinator
+	mallAssistantRunner MallAssistantRunner
+	executionEngine     ExecutionEngine
+	pollInterval        time.Duration
+	onTaskCompleted     func(taskID, robotID, status string)
+	onTaskStarted       func(taskID, robotID, scenarioID, zoneID string)
+	onZoneAcquired      func(robotID, zoneID, taskID string)
+	onZoneReleased      func(robotID, zoneID, taskID string)
 }
 
 // RunnerConfig configures the Task Runner.
 type RunnerConfig struct {
-	PollInterval    time.Duration
-	OnTaskCompleted func(taskID, robotID, status string) // optional; called when task completes, fails, or is cancelled
-	OnTaskStarted   func(taskID, robotID, scenarioID, zoneID string)
-	OnZoneAcquired  func(robotID, zoneID, taskID string)
-	OnZoneReleased  func(robotID, zoneID, taskID string)
+	PollInterval        time.Duration
+	MallAssistantRunner MallAssistantRunner // optional; for mall_assistant scenario
+	ExecutionEngine     ExecutionEngine     // optional; for navigate_to_store and return navigation
+	OnTaskCompleted     func(taskID, robotID, status string) // optional; called when task completes, fails, or is cancelled
+	OnTaskStarted       func(taskID, robotID, scenarioID, zoneID string)
+	OnZoneAcquired      func(robotID, zoneID, taskID string)
+	OnZoneReleased      func(robotID, zoneID, taskID string)
 }
 
 // NewRunner creates a new Task Runner.
@@ -51,16 +65,18 @@ func NewRunnerWithCoordinator(taskStore Store, scenarioCatalog *scenarios.Catalo
 		interval = cfg.PollInterval
 	}
 	return &Runner{
-		taskStore:       taskStore,
-		scenarioCatalog: scenarioCatalog,
-		registry:        reg,
-		bus:             bus,
-		coordinator:     coord,
-		pollInterval:    interval,
-		onTaskCompleted: cfg.OnTaskCompleted,
-		onTaskStarted:   cfg.OnTaskStarted,
-		onZoneAcquired:  cfg.OnZoneAcquired,
-		onZoneReleased:  cfg.OnZoneReleased,
+		taskStore:           taskStore,
+		scenarioCatalog:     scenarioCatalog,
+		registry:            reg,
+		bus:                 bus,
+		coordinator:         coord,
+		mallAssistantRunner: cfg.MallAssistantRunner,
+		executionEngine:     cfg.ExecutionEngine,
+		pollInterval:        interval,
+		onTaskCompleted:     cfg.OnTaskCompleted,
+		onTaskStarted:       cfg.OnTaskStarted,
+		onZoneAcquired:      cfg.OnZoneAcquired,
+		onZoneReleased:      cfg.OnZoneReleased,
 	}
 }
 
@@ -117,11 +133,13 @@ func (r *Runner) runOne(ctx context.Context) {
 	}
 	// Execute steps
 	var taskPayload struct {
-		DurationSec int     `json:"duration_sec"`
-		LinearX     float64 `json:"linear_x"`
-		LinearY     float64 `json:"linear_y"`
-		AngularZ    float64 `json:"angular_z"`
-		ZoneID      string  `json:"zone_id"`
+		DurationSec        int     `json:"duration_sec"`
+		LinearX            float64 `json:"linear_x"`
+		LinearY            float64 `json:"linear_y"`
+		AngularZ           float64 `json:"angular_z"`
+		ZoneID             string  `json:"zone_id"`
+		TargetCoordinates  string  `json:"target_coordinates"`
+		StoreName          string  `json:"store_name"`
 	}
 	if len(task.Payload) > 0 {
 		_ = json.Unmarshal(task.Payload, &taskPayload)
@@ -136,6 +154,35 @@ func (r *Runner) runOne(ctx context.Context) {
 	task.Status = StatusRunning
 	if r.onTaskStarted != nil {
 		r.onTaskStarted(task.ID, task.RobotID, task.ScenarioID, taskPayload.ZoneID)
+	}
+
+	// mall_assistant: delegate to dedicated handler
+	if task.ScenarioID == "mall_assistant" && r.mallAssistantRunner != nil {
+		tenantID := task.TenantID
+		if tenantID == "" {
+			tenantID = "default"
+		}
+		operatorID := task.OperatorID
+		if operatorID == "" {
+			operatorID = "console"
+		}
+		go r.mallAssistantRunner.Run(ctx, task.ID, task.RobotID, tenantID, operatorID)
+		return
+	}
+
+	// navigate_to_store or navigation (return): delegate to Execution Engine
+	if r.executionEngine != nil {
+		if task.ScenarioID == "navigate_to_store" {
+			if r.executionEngine.ExecuteTaskEntry(ctx, &task) {
+				return
+			}
+		}
+		if task.ScenarioID == "navigation" && taskPayload.TargetCoordinates != "" {
+			// Return to base has target_coordinates, not zone_id
+			if r.executionEngine.ExecuteTaskEntry(ctx, &task) {
+				return
+			}
+		}
 	}
 
 	// Zone coordination: acquire zone for patrol/navigation if zone_id in payload
@@ -182,6 +229,9 @@ func (r *Runner) runOne(ctx context.Context) {
 		durationSec := step.DurationSec
 		if step.DurationSec == -1 {
 			durationSec = taskPayload.DurationSec
+			if durationSec <= 0 && step.Command == "navigate_to" {
+				durationSec = 30
+			}
 		}
 		if len(step.Payload) == 0 && step.Command == "cmd_vel" {
 			payload = mustMarshal(map[string]float64{
@@ -192,6 +242,9 @@ func (r *Runner) runOne(ctx context.Context) {
 			if len(task.Payload) > 0 {
 				payload = task.Payload
 			}
+		}
+		if len(step.Payload) == 0 && step.Command == "navigate_to" && len(task.Payload) > 0 {
+			payload = task.Payload
 		}
 
 		cmd := &hal.Command{

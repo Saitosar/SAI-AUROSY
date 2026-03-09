@@ -39,8 +39,14 @@ func NewCatalog() *Catalog {
 }
 
 // NewCatalogWithStore creates a catalog backed by a store.
+// Built-in scenarios (standby, patrol, navigation, mall_assistant, navigate_to_store) are used as fallback when not in store.
 func NewCatalogWithStore(store Store) *Catalog {
-	return &Catalog{store: store}
+	c := &Catalog{
+		store:     store,
+		scenarios: make(map[string]Scenario),
+	}
+	c.registerDefaults()
+	return c
 }
 
 func (c *Catalog) registerDefaults() {
@@ -92,6 +98,31 @@ func (c *Catalog) registerDefaults() {
 			},
 		},
 	}
+
+	// mall_assistant: interactive guide (handled by MallAssistantHandler, not step execution)
+	c.scenarios["mall_assistant"] = Scenario{
+		ID:                  "mall_assistant",
+		Name:                "Mall Assistant & Guide",
+		Description:         "Interactive assistant in a shopping mall",
+		RequiredCapabilities: []string{hal.CapWalk, hal.CapStand, hal.CapNavigation, hal.CapSpeech},
+		Steps:               []ScenarioStep{}, // steps executed by handler
+	}
+
+	// navigate_to_store: walk_mode -> navigate_to with target_coordinates from task payload
+	c.scenarios["navigate_to_store"] = Scenario{
+		ID:                  "navigate_to_store",
+		Name:                "Navigate to Store",
+		Description:         "Navigate to store coordinates",
+		RequiredCapabilities: []string{hal.CapWalk, hal.CapNavigation},
+		Steps: []ScenarioStep{
+			{Command: "walk_mode", DurationSec: 0},
+			{
+				Command:     "navigate_to",
+				Payload:     nil, // from task payload: target_coordinates, store_name
+				DurationSec: -1,
+			},
+		},
+	}
 }
 
 func mustMarshal(v interface{}) json.RawMessage {
@@ -108,10 +139,9 @@ func (c *Catalog) Get(id string) (Scenario, bool) {
 func (c *Catalog) GetForTenant(id, tenantID string) (Scenario, bool) {
 	if c.store != nil {
 		sc, err := c.store.GetByTenant(context.Background(), id, tenantID)
-		if err != nil || sc == nil {
-			return Scenario{}, false
+		if err == nil && sc != nil {
+			return *sc, true
 		}
-		return *sc, true
 	}
 	s, ok := c.scenarios[id]
 	return s, ok
@@ -124,16 +154,21 @@ func (c *Catalog) List() []Scenario {
 
 // ListForTenant returns scenarios visible to the tenant (shared + tenant-specific).
 func (c *Catalog) ListForTenant(tenantID string) []Scenario {
+	seen := make(map[string]bool)
+	var out []Scenario
 	if c.store != nil {
 		list, err := c.store.ListByTenant(context.Background(), tenantID)
-		if err != nil {
-			return nil
+		if err == nil {
+			for _, s := range list {
+				seen[s.ID] = true
+				out = append(out, s)
+			}
 		}
-		return list
 	}
-	out := make([]Scenario, 0, len(c.scenarios))
 	for _, s := range c.scenarios {
-		out = append(out, s)
+		if !seen[s.ID] {
+			out = append(out, s)
+		}
 	}
 	return out
 }
