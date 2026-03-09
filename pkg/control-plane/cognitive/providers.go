@@ -39,3 +39,18 @@ func (m *MockGateway) Recognize(ctx context.Context, req RecognizeRequest) (*Rec
 func (m *MockGateway) Plan(ctx context.Context, req PlanRequest) (*PlanResult, error) {
 	return &PlanResult{Steps: []PlanStep{}}, nil
 }
+
+// Transcribe returns empty transcript (mock).
+func (m *MockGateway) Transcribe(ctx context.Context, req TranscribeRequest) (*TranscribeResult, error) {
+	return &TranscribeResult{Text: "", Language: "en", Confidence: 0}, nil
+}
+
+// Synthesize returns empty audio (mock).
+func (m *MockGateway) Synthesize(ctx context.Context, req SynthesizeRequest) (*SynthesizeResult, error) {
+	return &SynthesizeResult{AudioBase64: ""}, nil
+}
+
+// UnderstandIntent returns empty intent (mock).
+func (m *MockGateway) UnderstandIntent(ctx context.Context, req UnderstandIntentRequest) (*IntentResult, error) {
+	return &IntentResult{Intent: "", Parameters: nil, Confidence: 0}, nil
+}

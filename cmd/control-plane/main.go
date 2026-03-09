@@ -26,6 +26,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/oauth"
 	"github.com/sai-aurosy/platform/pkg/control-plane/observability"
 	"github.com/sai-aurosy/platform/pkg/control-plane/openapi"
+	"github.com/sai-aurosy/platform/pkg/control-plane/conversations"
 	"github.com/sai-aurosy/platform/pkg/control-plane/cognitive"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
@@ -265,7 +266,15 @@ func main() {
 	if db != nil {
 		marketplaceStore = marketplace.NewSQLStore(db, driver)
 	}
-	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, marketplaceStore, idempotencyStore, eventBroadcaster)
+	var conversationCatalog *conversations.Catalog
+	if db != nil {
+		convStore := conversations.NewSQLStore(db, driver)
+		conversationCatalog = conversations.NewCatalog(convStore)
+	} else {
+		convStore := conversations.NewMemoryStore()
+		conversationCatalog = conversations.NewCatalog(convStore)
+	}
+	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster)
 	r := mux.NewRouter()
 
 	healthHandler := health.NewHandler(bus, db)

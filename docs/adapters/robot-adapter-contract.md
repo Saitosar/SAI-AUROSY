@@ -31,6 +31,8 @@ Python adapters implement the same semantics via NATS pub/sub; they do not use t
 |-------|-----------|-------------|
 | `telemetry.robots.{robot_id}` | Adapter → Platform | Telemetry updates. Adapter publishes; Control Plane subscribes. |
 | `commands.robots.{robot_id}` | Platform → Adapter | Commands. Control Plane publishes; adapter subscribes. |
+| `audio.robots.{robot_id}.input` | Adapter → Platform | Raw audio from robot microphone (Speech Layer). |
+| `audio.robots.{robot_id}.output` | Platform → Adapter | TTS audio for robot speaker (Speech Layer). |
 
 ### Wildcard Subscriptions
 
@@ -142,6 +144,7 @@ Robots declare capabilities in the Fleet Registry. Tasks are assigned only to ro
 | `zero_mode` | zero_mode |
 | `patrol` | Scenario-level |
 | `navigation` | Scenario-level |
+| `speech` | Microphone + speaker; audio.robots.{id}.input, audio.robots.{id}.output |
 
 ## Requirements
 
@@ -153,6 +156,7 @@ Robots declare capabilities in the Fleet Registry. Tasks are assigned only to ro
 ## Related Documents
 
 - [Adapter Layer](../architecture/adapter-layer.md)
+- [Speech Layer](../architecture/speech-layer.md)
 - [AGIBOT](../vendors/agibot.md)
 - [Unitree](../vendors/unitree.md)
 - [ROS](../vendors/ros.md)

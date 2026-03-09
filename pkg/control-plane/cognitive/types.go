@@ -47,7 +47,48 @@ type PlanResult struct {
 
 // PlanStep is a single step in a plan.
 type PlanStep struct {
-	Action   string                 `json:"action"`
-	Payload  map[string]interface{} `json:"payload,omitempty"`
-	DurationSec int                `json:"duration_sec,omitempty"`
+	Action      string                 `json:"action"`
+	Payload     map[string]interface{} `json:"payload,omitempty"`
+	DurationSec int                    `json:"duration_sec,omitempty"`
+}
+
+// TranscribeRequest is the input for speech-to-text (STT).
+type TranscribeRequest struct {
+	RobotID     string `json:"robot_id"`
+	AudioBase64 string `json:"audio_base64"` // base64-encoded audio (e.g. PCM 16kHz mono)
+	Language    string `json:"language,omitempty"` // hint: uz, en, ru, az, ar; empty = auto-detect
+}
+
+// TranscribeResult is the output of STT.
+type TranscribeResult struct {
+	Text       string  `json:"text"`
+	Language   string  `json:"language"`
+	Confidence float64 `json:"confidence"`
+}
+
+// SynthesizeRequest is the input for text-to-speech (TTS).
+type SynthesizeRequest struct {
+	RobotID  string `json:"robot_id"`
+	Text     string `json:"text"`
+	Language string `json:"language"` // uz, en, ru, az, ar
+}
+
+// SynthesizeResult is the output of TTS.
+type SynthesizeResult struct {
+	AudioBase64 string `json:"audio_base64"` // base64-encoded audio
+}
+
+// UnderstandIntentRequest is the input for intent extraction.
+type UnderstandIntentRequest struct {
+	RobotID   string `json:"robot_id"`
+	Text      string `json:"text"`
+	Language  string `json:"language,omitempty"`
+	Context   map[string]interface{} `json:"context,omitempty"` // optional conversation context
+}
+
+// IntentResult is the output of intent understanding.
+type IntentResult struct {
+	Intent     string                 `json:"intent"`
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+	Confidence float64                `json:"confidence"`
 }

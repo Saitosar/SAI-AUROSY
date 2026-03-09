@@ -11,6 +11,8 @@ import (
 const (
 	TopicTelemetryPrefix = "telemetry.robots"
 	TopicCommandsPrefix  = "commands.robots"
+	TopicAudioPrefix     = "audio.robots"
+	TopicSpeechPrefix    = "speech.robots"
 )
 
 // Bus is the Telemetry/Event bus over NATS.
@@ -120,6 +122,52 @@ func (b *Bus) SubscribeAllCommands(handler func(*hal.Command)) (*nats.Subscripti
 		}
 		handler(&c)
 	})
+}
+
+// PublishAudioInput publishes raw audio from robot microphone to audio.robots.{id}.input.
+func (b *Bus) PublishAudioInput(robotID string, data []byte) error {
+	topic := fmt.Sprintf("%s.%s.input", TopicAudioPrefix, robotID)
+	return b.nc.Publish(topic, data)
+}
+
+// SubscribeAudioInput subscribes to audio input for a robot.
+func (b *Bus) SubscribeAudioInput(robotID string, handler func([]byte)) (*nats.Subscription, error) {
+	topic := fmt.Sprintf("%s.%s.input", TopicAudioPrefix, robotID)
+	return b.nc.Subscribe(topic, func(msg *nats.Msg) {
+		handler(msg.Data)
+	})
+}
+
+// PublishAudioOutput publishes TTS audio to robot speaker at audio.robots.{id}.output.
+func (b *Bus) PublishAudioOutput(robotID string, data []byte) error {
+	topic := fmt.Sprintf("%s.%s.output", TopicAudioPrefix, robotID)
+	return b.nc.Publish(topic, data)
+}
+
+// SubscribeAudioOutput subscribes to audio output for a robot (adapter receives TTS).
+func (b *Bus) SubscribeAudioOutput(robotID string, handler func([]byte)) (*nats.Subscription, error) {
+	topic := fmt.Sprintf("%s.%s.output", TopicAudioPrefix, robotID)
+	return b.nc.Subscribe(topic, func(msg *nats.Msg) {
+		handler(msg.Data)
+	})
+}
+
+// PublishSpeechTranscript publishes STT result to speech.robots.{id}.transcript.
+func (b *Bus) PublishSpeechTranscript(robotID string, data []byte) error {
+	topic := fmt.Sprintf("%s.%s.transcript", TopicSpeechPrefix, robotID)
+	return b.nc.Publish(topic, data)
+}
+
+// PublishSpeechIntent publishes extracted intent to speech.robots.{id}.intent.
+func (b *Bus) PublishSpeechIntent(robotID string, data []byte) error {
+	topic := fmt.Sprintf("%s.%s.intent", TopicSpeechPrefix, robotID)
+	return b.nc.Publish(topic, data)
+}
+
+// PublishSpeechResponse publishes text response to speech.robots.{id}.response.
+func (b *Bus) PublishSpeechResponse(robotID string, data []byte) error {
+	topic := fmt.Sprintf("%s.%s.response", TopicSpeechPrefix, robotID)
+	return b.nc.Publish(topic, data)
 }
 
 // Close closes the NATS connection.
