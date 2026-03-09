@@ -1,0 +1,179 @@
+{
+  "scenario_name": "return_to_base",
+  "status": "FAIL",
+  "start_time": "2026-03-10T03:47:37.330948+05:00",
+  "end_time": "2026-03-10T03:49:39.336811+05:00",
+  "duration_ms": 122004,
+  "assertions_passed": 2,
+  "assertions_failed": 1,
+  "final_robot_state": "IDLE",
+  "emitted_events": [
+    {
+      "type": "mall_store_resolved",
+      "payload": {
+        "mall_id": "default",
+        "node_id": "node-nike",
+        "store_name": "Nike"
+      },
+      "timestamp": "2026-03-10T03:47:37.331544+05:00"
+    },
+    {
+      "type": "mall_route_calculated",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "route_length": 4,
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T03:47:37.331642+05:00"
+    },
+    {
+      "type": "navigation_started",
+      "payload": {
+        "robot_id": "sim-001",
+        "store": "Nike",
+        "task_id": "c2f0306a-713a-4af9-bead-abb002c7af39"
+      },
+      "timestamp": "2026-03-10T03:47:37.331644+05:00"
+    },
+    {
+      "type": "mall_navigation_requested",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "robot_id": "sim-001",
+        "route_length": 4,
+        "store_name": "Nike",
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T03:47:37.33171+05:00"
+    },
+    {
+      "type": "navigation_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "store": "Nike",
+        "task_id": "c2f0306a-713a-4af9-bead-abb002c7af39"
+      },
+      "timestamp": "2026-03-10T03:48:07.332912+05:00"
+    },
+    {
+      "type": "visitor_interaction_finished",
+      "payload": {
+        "robot_id": "sim-001",
+        "task_id": "c2f0306a-713a-4af9-bead-abb002c7af39"
+      },
+      "timestamp": "2026-03-10T03:48:07.332918+05:00"
+    },
+    {
+      "type": "task_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "status": "completed",
+        "task_id": "c2f0306a-713a-4af9-bead-abb002c7af39"
+      },
+      "timestamp": "2026-03-10T03:48:07.333004+05:00"
+    },
+    {
+      "type": "robot_state_changed",
+      "payload": {
+        "previous_state": "ARRIVED_AT_DESTINATION",
+        "robot_id": "sim-001",
+        "state": "RETURNING_TO_BASE",
+        "task_id": "ac5d572d-18d1-4858-9a1c-25b3e40caea1",
+        "timestamp": "2026-03-09T22:48:09.308123Z"
+      },
+      "timestamp": "2026-03-10T03:48:09.308156+05:00"
+    },
+    {
+      "type": "robot_returning_to_base",
+      "payload": {
+        "robot_id": "sim-001",
+        "task_id": "ac5d572d-18d1-4858-9a1c-25b3e40caea1",
+        "timestamp": "2026-03-09T22:48:09.308133Z"
+      },
+      "timestamp": "2026-03-10T03:48:09.308157+05:00"
+    },
+    {
+      "type": "robot_state_changed",
+      "payload": {
+        "previous_state": "RETURNING_TO_BASE",
+        "robot_id": "sim-001",
+        "state": "IDLE",
+        "task_id": "ac5d572d-18d1-4858-9a1c-25b3e40caea1",
+        "timestamp": "2026-03-09T22:48:09.81015Z"
+      },
+      "timestamp": "2026-03-10T03:48:09.810171+05:00"
+    },
+    {
+      "type": "robot_idle",
+      "payload": {
+        "robot_id": "sim-001",
+        "timestamp": "2026-03-09T22:48:09.810158Z"
+      },
+      "timestamp": "2026-03-10T03:48:09.810171+05:00"
+    },
+    {
+      "type": "task_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "status": "completed",
+        "task_id": "ac5d572d-18d1-4858-9a1c-25b3e40caea1"
+      },
+      "timestamp": "2026-03-10T03:48:09.810172+05:00"
+    },
+    {
+      "type": "visitor_interaction_started",
+      "payload": {
+        "robot_id": "sim-001",
+        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+      },
+      "timestamp": "2026-03-10T03:48:11.307233+05:00"
+    }
+  ],
+  "results": [
+    {
+      "AssertionType": "final_robot_state",
+      "Passed": true,
+      "Message": "robot state is IDLE",
+      "Details": {
+        "actual": "IDLE",
+        "expected": "IDLE"
+      }
+    },
+    {
+      "AssertionType": "event_sequence",
+      "Passed": true,
+      "Message": "event sequence correct: [robot_returning_to_base robot_idle]",
+      "Details": {
+        "events": [
+          "mall_store_resolved",
+          "mall_route_calculated",
+          "navigation_started",
+          "mall_navigation_requested",
+          "navigation_completed",
+          "visitor_interaction_finished",
+          "task_completed",
+          "robot_state_changed",
+          "robot_returning_to_base",
+          "robot_state_changed",
+          "robot_idle",
+          "task_completed",
+          "visitor_interaction_started"
+        ]
+      }
+    },
+    {
+      "AssertionType": "task_status",
+      "Passed": false,
+      "Message": "task a746458b-9306-4f7b-b86d-e5816d82082a: expected status completed, got pending",
+      "Details": {
+        "actual": "pending",
+        "expected": "completed",
+        "task_id": "a746458b-9306-4f7b-b86d-e5816d82082a"
+      }
+    }
+  ]
+}

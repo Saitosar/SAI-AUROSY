@@ -1,0 +1,49 @@
+{
+  "description": "Adapter readiness contract for SAI AUROSY Mall Assistant pilot",
+  "required_commands": [
+    "navigate_to",
+    "safe_stop",
+    "release_control",
+    "walk_mode",
+    "stand_mode"
+  ],
+  "required_telemetry": [
+    "robot_id",
+    "online",
+    "current_task",
+    "position",
+    "target_position",
+    "distance_to_target",
+    "timestamp",
+    "actuator_status"
+  ],
+  "capability_commands": {
+    "navigation": [
+      "navigate_to"
+    ],
+    "release_control": [
+      "release_control"
+    ],
+    "safe_stop": [
+      "safe_stop"
+    ],
+    "speech": [
+      "speak"
+    ],
+    "stand": [
+      "stand_mode"
+    ],
+    "walk": [
+      "walk_mode"
+    ]
+  },
+  "timing": {
+    "telemetry_interval_sec": 2,
+    "stale_threshold_sec": 5,
+    "command_effect_max_delay_sec": 2
+  },
+  "nats_topics": {
+    "telemetry": "telemetry.robots.{robot_id}",
+    "commands": "commands.robots.{robot_id}"
+  }
+}

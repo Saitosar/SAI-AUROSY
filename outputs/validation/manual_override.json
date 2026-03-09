@@ -1,0 +1,70 @@
+{
+  "scenario_name": "manual_override",
+  "status": "PASS",
+  "start_time": "2026-03-10T03:43:28.31713+05:00",
+  "end_time": "2026-03-10T03:43:42.31891+05:00",
+  "duration_ms": 14001,
+  "assertions_passed": 2,
+  "assertions_failed": 0,
+  "final_robot_state": "ARRIVED_AT_DESTINATION",
+  "emitted_events": [
+    {
+      "type": "mall_store_resolved",
+      "payload": {
+        "mall_id": "default",
+        "node_id": "node-nike",
+        "store_name": "Nike"
+      },
+      "timestamp": "2026-03-10T03:43:28.317334+05:00"
+    },
+    {
+      "type": "mall_route_calculated",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "route_length": 4,
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T03:43:28.317364+05:00"
+    },
+    {
+      "type": "navigation_started",
+      "payload": {
+        "robot_id": "sim-001",
+        "store": "Nike",
+        "task_id": "4b297151-ab9c-45ca-8f1a-51e7b95afc84"
+      },
+      "timestamp": "2026-03-10T03:43:28.317365+05:00"
+    },
+    {
+      "type": "mall_navigation_requested",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "robot_id": "sim-001",
+        "route_length": 4,
+        "store_name": "Nike",
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T03:43:28.317378+05:00"
+    }
+  ],
+  "results": [
+    {
+      "AssertionType": "safe_stop_received",
+      "Passed": true,
+      "Message": "telemetry shows idle (safe_stop effect)",
+      "Details": null
+    },
+    {
+      "AssertionType": "telemetry_field_present",
+      "Passed": true,
+      "Message": "field position present in telemetry",
+      "Details": {
+        "field": "position"
+      }
+    }
+  ]
+}

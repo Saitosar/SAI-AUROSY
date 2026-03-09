@@ -1,0 +1,16 @@
+{
+  "scenario": "mall_assistant_happy_path",
+  "ticks": [
+    { "position": {"x": 0, "y": 0}, "distance_to_target": 15.8, "online": true },
+    { "position": {"x": 0.5, "y": 0.2}, "distance_to_target": 15.3, "online": true },
+    { "position": {"x": 1, "y": 0.3}, "distance_to_target": 14.8, "online": true },
+    { "position": {"x": 2, "y": 0.7}, "distance_to_target": 13.8, "online": true },
+    { "position": {"x": 4, "y": 1.3}, "distance_to_target": 11.8, "online": true },
+    { "position": {"x": 6, "y": 2}, "distance_to_target": 9.8, "online": true },
+    { "position": {"x": 8, "y": 2.7}, "distance_to_target": 7.8, "online": true },
+    { "position": {"x": 10, "y": 3.3}, "distance_to_target": 5.8, "online": true },
+    { "position": {"x": 12, "y": 4}, "distance_to_target": 3.8, "online": true },
+    { "position": {"x": 14, "y": 4.7}, "distance_to_target": 1.5, "online": true },
+    { "position": {"x": 15, "y": 5}, "distance_to_target": 0.3, "online": true }
+  ]
+}

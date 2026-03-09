@@ -1,0 +1,23 @@
+name: return_to_base
+description: "After arrival at store, return path succeeds - robot ends in IDLE"
+robot_id: sim-001
+preconditions:
+  - robot_online: true
+steps:
+  - action: start_mall_assistant
+  - action: submit_visitor_request
+    text: "Where is Nike?"
+  - action: wait_navigation_complete
+    timeout_sec: 60
+  - action: wait_return_complete
+    timeout_sec: 60
+assertions:
+  - type: final_robot_state
+    state: IDLE
+  - type: event_sequence
+    events:
+      - robot_returning_to_base
+      - robot_idle
+  - type: task_status
+    scenario_id: mall_assistant
+    status: completed
