@@ -99,3 +99,8 @@ func (b *Bus) SubscribeAllCommands(handler func(*hal.Command)) (*nats.Subscripti
 func (b *Bus) Close() {
 	b.nc.Close()
 }
+
+// IsConnected returns true if the NATS connection is active.
+func (b *Bus) IsConnected() bool {
+	return b.nc.Status() == nats.CONNECTED
+}

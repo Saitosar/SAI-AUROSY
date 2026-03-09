@@ -38,6 +38,23 @@ The callback receives normalized `Telemetry` with: `robot_id`, `timestamp`, `onl
 - `joint_states` — array of `{ name, position, velocity, effort }` per joint (from `/joint_states`).
 - `current_task` — heuristic from last mode command: `idle` (safe_stop), `zero` (zero_mode), `stand` (stand_mode), `walk` (walk_mode, cmd_vel).
 
+## Capability Model
+
+Each robot in the Fleet Registry has a `capabilities` array describing what it can do. Standard capabilities (see `pkg/hal/capabilities.go`):
+
+| Capability | Description |
+|------------|-------------|
+| `walk` | Walking mode |
+| `stand` | Standing pose |
+| `safe_stop` | Emergency stop |
+| `release_control` | Release to operator |
+| `cmd_vel` | Velocity commands |
+| `zero_mode` | Zero joints |
+| `patrol` | Patrol scenario |
+| `navigation` | Navigation scenario |
+
+Scenarios declare `RequiredCapabilities`. Tasks are only assigned to robots that have all required capabilities. The Task Runner and API validate this before execution.
+
 ## Adding New Vendors
 
 1. Implement `RobotAdapter` in `pkg/adapters/<vendor>/`

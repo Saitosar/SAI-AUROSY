@@ -2,9 +2,11 @@ package arbiter
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
+	"github.com/sai-aurosy/platform/pkg/control-plane/audit"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/hal"
 	"github.com/sai-aurosy/platform/pkg/telemetry"
@@ -12,23 +14,14 @@ import (
 
 // Arbiter routes commands to the appropriate adapter via the Telemetry Bus.
 type Arbiter struct {
-	bus      *telemetry.Bus
-	registry *registry.Store
-	auditLog []AuditEntry
+	bus        *telemetry.Bus
+	registry   registry.Store
+	auditStore audit.Store
 }
 
-// AuditEntry records a command for audit trail.
-type AuditEntry struct {
-	RobotID    string    `json:"robot_id"`
-	Command    string    `json:"command"`
-	OperatorID string    `json:"operator_id"`
-	Timestamp  time.Time `json:"timestamp"`
-	Allowed    bool      `json:"allowed"`
-}
-
-// NewArbiter creates a new Command Arbiter.
-func NewArbiter(bus *telemetry.Bus, reg *registry.Store) *Arbiter {
-	return &Arbiter{bus: bus, registry: reg, auditLog: make([]AuditEntry, 0, 100)}
+// NewArbiter creates a new Command Arbiter. auditStore is optional.
+func NewArbiter(bus *telemetry.Bus, reg registry.Store, auditStore audit.Store) *Arbiter {
+	return &Arbiter{bus: bus, registry: reg, auditStore: auditStore}
 }
 
 // Run subscribes to commands and routes them. Blocks until ctx is done.
@@ -64,11 +57,23 @@ func (a *Arbiter) handleCommand(cmd *hal.Command) {
 }
 
 func (a *Arbiter) audit(cmd *hal.Command, allowed bool) {
-	a.auditLog = append(a.auditLog, AuditEntry{
-		RobotID:    cmd.RobotID,
-		Command:    cmd.Command,
-		OperatorID: cmd.OperatorID,
+	if a.auditStore == nil {
+		return
+	}
+	details, _ := json.Marshal(map[string]any{"command": cmd.Command, "allowed": allowed})
+	_ = a.auditStore.Append(context.Background(), &audit.Entry{
+		Actor:      nullIfEmpty(cmd.OperatorID),
+		Action:     "command",
+		Resource:   "robot",
+		ResourceID: cmd.RobotID,
 		Timestamp:  time.Now(),
-		Allowed:    allowed,
+		Details:    string(details),
 	})
+}
+
+func nullIfEmpty(s string) string {
+	if s == "" {
+		return "system"
+	}
+	return s
 }

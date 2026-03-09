@@ -1,0 +1,75 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SAI AUROSY Control Plane API",
+    "description": "Enterprise Multi-Robot Workforce Platform API",
+    "version": "1.0.0"
+  },
+  "servers": [{"url": "/api/v1", "description": "API v1"}],
+  "paths": {
+    "/robots": {
+      "get": {"summary": "List robots", "tags": ["robots"]},
+      "post": {"summary": "Create robot", "tags": ["robots"]}
+    },
+    "/robots/{id}": {
+      "get": {"summary": "Get robot", "tags": ["robots"]},
+      "put": {"summary": "Update robot", "tags": ["robots"]},
+      "delete": {"summary": "Delete robot", "tags": ["robots"]}
+    },
+    "/robots/{id}/command": {
+      "post": {"summary": "Send command to robot", "tags": ["robots"]}
+    },
+    "/telemetry/stream": {
+      "get": {"summary": "SSE telemetry stream", "tags": ["telemetry"]}
+    },
+    "/scenarios": {
+      "get": {"summary": "List scenarios", "tags": ["tasks"]}
+    },
+    "/tasks": {
+      "get": {"summary": "List tasks", "tags": ["tasks"]},
+      "post": {"summary": "Create task", "tags": ["tasks"]}
+    },
+    "/tasks/{id}": {
+      "get": {"summary": "Get task", "tags": ["tasks"]}
+    },
+    "/tasks/{id}/cancel": {
+      "post": {"summary": "Cancel task", "tags": ["tasks"]}
+    },
+    "/zones": {
+      "get": {"summary": "List zones", "tags": ["zones"]}
+    },
+    "/zones/{id}": {
+      "get": {"summary": "Get zone status", "tags": ["zones"]}
+    },
+    "/workflows": {
+      "get": {"summary": "List workflows", "tags": ["workflows"]}
+    },
+    "/workflows/{id}/run": {
+      "post": {"summary": "Run workflow", "tags": ["workflows"]}
+    },
+    "/workflow-runs": {
+      "get": {"summary": "List workflow runs", "tags": ["workflows"]}
+    },
+    "/workflow-runs/{id}": {
+      "get": {"summary": "Get workflow run", "tags": ["workflows"]}
+    },
+    "/audit": {
+      "get": {"summary": "List audit log", "tags": ["audit"]}
+    },
+    "/webhooks": {
+      "get": {"summary": "List webhooks", "tags": ["webhooks"]},
+      "post": {"summary": "Create webhook", "tags": ["webhooks"]}
+    },
+    "/webhooks/{id}": {
+      "get": {"summary": "Get webhook", "tags": ["webhooks"]},
+      "put": {"summary": "Update webhook", "tags": ["webhooks"]},
+      "delete": {"summary": "Delete webhook", "tags": ["webhooks"]}
+    },
+    "/analytics/robots": {
+      "get": {"summary": "List robot analytics summaries", "tags": ["analytics"]}
+    },
+    "/analytics/robots/{id}/summary": {
+      "get": {"summary": "Get robot analytics summary", "tags": ["analytics"]}
+    }
+  }
+}

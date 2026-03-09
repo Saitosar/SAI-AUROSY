@@ -7,21 +7,29 @@ import (
 	"github.com/sai-aurosy/platform/pkg/hal"
 )
 
-// Store is an in-memory fleet registry store.
-type Store struct {
+// Store is the fleet registry store interface.
+type Store interface {
+	Add(r *hal.Robot)
+	Get(id string) *hal.Robot
+	List() []hal.Robot
+	Delete(id string) bool
+}
+
+// MemoryStore is an in-memory fleet registry store.
+type MemoryStore struct {
 	mu     sync.RWMutex
 	robots map[string]*hal.Robot
 }
 
-// NewStore creates a new registry store.
-func NewStore() *Store {
-	return &Store{
+// NewMemoryStore creates a new in-memory registry store.
+func NewMemoryStore() *MemoryStore {
+	return &MemoryStore{
 		robots: make(map[string]*hal.Robot),
 	}
 }
 
 // Add adds or updates a robot.
-func (s *Store) Add(r *hal.Robot) {
+func (s *MemoryStore) Add(r *hal.Robot) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
@@ -33,7 +41,7 @@ func (s *Store) Add(r *hal.Robot) {
 }
 
 // Get returns a robot by ID.
-func (s *Store) Get(id string) *hal.Robot {
+func (s *MemoryStore) Get(id string) *hal.Robot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	r, ok := s.robots[id]
@@ -45,7 +53,7 @@ func (s *Store) Get(id string) *hal.Robot {
 }
 
 // List returns all robots.
-func (s *Store) List() []hal.Robot {
+func (s *MemoryStore) List() []hal.Robot {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	out := make([]hal.Robot, 0, len(s.robots))
@@ -56,7 +64,7 @@ func (s *Store) List() []hal.Robot {
 }
 
 // Delete removes a robot.
-func (s *Store) Delete(id string) bool {
+func (s *MemoryStore) Delete(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.robots[id]; ok {
