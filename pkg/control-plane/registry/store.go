@@ -12,6 +12,7 @@ type Store interface {
 	Add(r *hal.Robot)
 	Get(id string) *hal.Robot
 	List() []hal.Robot
+	ListByTenant(tenantID string) []hal.Robot
 	Delete(id string) bool
 }
 
@@ -59,6 +60,19 @@ func (s *MemoryStore) List() []hal.Robot {
 	out := make([]hal.Robot, 0, len(s.robots))
 	for _, r := range s.robots {
 		out = append(out, *r)
+	}
+	return out
+}
+
+// ListByTenant returns robots for the given tenant. If tenantID is empty, returns all.
+func (s *MemoryStore) ListByTenant(tenantID string) []hal.Robot {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]hal.Robot, 0)
+	for _, r := range s.robots {
+		if tenantID == "" || r.TenantID == tenantID {
+			out = append(out, *r)
+		}
 	}
 	return out
 }

@@ -1,0 +1,54 @@
+# Prometheus alerting rules for SAI AUROSY Control Plane.
+# Include this file in your Prometheus config:
+#   rule_files:
+#     - /path/to/deploy/prometheus/rules/control-plane.yml
+
+groups:
+  - name: control-plane
+    rules:
+      - alert: ControlPlaneDown
+        expr: up{job="control-plane"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Control Plane is down"
+          runbook_url: "https://github.com/sai-aurosy/platform/blob/main/docs/operations/production-runbook.md#controlplanedown"
+
+      - alert: ControlPlaneNotReady
+        expr: probe_success{job="control-plane-ready"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Control Plane readiness check failed"
+          runbook_url: "https://github.com/sai-aurosy/platform/blob/main/docs/operations/production-runbook.md#controlplanenotready"
+
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_requests_errors_total{job="control-plane"}[5m])) /
+          sum(rate(http_requests_total{job="control-plane"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Control Plane high error rate (>5%)"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="control-plane"}[5m])) by (le)
+          ) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Control Plane p95 latency > 5s"
+
+      - alert: StreamingGatewayBackpressure
+        expr: increase(streaming_gateway_dropped_events_total{job="control-plane"}[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Streaming gateway dropping telemetry events (backpressure)"

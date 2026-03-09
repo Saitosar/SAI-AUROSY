@@ -66,6 +66,10 @@ func (s *SQLStore) List(ctx context.Context, f ListFilters) ([]*Entry, error) {
 		conds = append(conds, "resource = 'robot' AND resource_id = ?")
 		args = append(args, f.RobotID)
 	}
+	if f.TenantID != "" {
+		conds = append(conds, "tenant_id = ?")
+		args = append(args, f.TenantID)
+	}
 	if f.Actor != "" {
 		conds = append(conds, "actor = ?")
 		args = append(args, f.Actor)

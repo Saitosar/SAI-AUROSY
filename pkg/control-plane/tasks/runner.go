@@ -3,15 +3,17 @@ package tasks
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/sai-aurosy/platform/pkg/control-plane/arbiter"
 	"github.com/sai-aurosy/platform/pkg/control-plane/coordinator"
+	"github.com/sai-aurosy/platform/pkg/control-plane/observability"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
 	"github.com/sai-aurosy/platform/pkg/hal"
 	"github.com/sai-aurosy/platform/pkg/telemetry"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Runner executes pending tasks by expanding scenarios and sending commands via the bus.
@@ -23,12 +25,18 @@ type Runner struct {
 	coordinator     *coordinator.Coordinator
 	pollInterval    time.Duration
 	onTaskCompleted func(taskID, robotID, status string)
+	onTaskStarted   func(taskID, robotID, scenarioID, zoneID string)
+	onZoneAcquired  func(robotID, zoneID, taskID string)
+	onZoneReleased  func(robotID, zoneID, taskID string)
 }
 
 // RunnerConfig configures the Task Runner.
 type RunnerConfig struct {
 	PollInterval    time.Duration
 	OnTaskCompleted func(taskID, robotID, status string) // optional; called when task completes, fails, or is cancelled
+	OnTaskStarted   func(taskID, robotID, scenarioID, zoneID string)
+	OnZoneAcquired  func(robotID, zoneID, taskID string)
+	OnZoneReleased  func(robotID, zoneID, taskID string)
 }
 
 // NewRunner creates a new Task Runner.
@@ -50,6 +58,9 @@ func NewRunnerWithCoordinator(taskStore Store, scenarioCatalog *scenarios.Catalo
 		coordinator:     coord,
 		pollInterval:    interval,
 		onTaskCompleted: cfg.OnTaskCompleted,
+		onTaskStarted:   cfg.OnTaskStarted,
+		onZoneAcquired:  cfg.OnZoneAcquired,
+		onZoneReleased:  cfg.OnZoneReleased,
 	}
 }
 
@@ -67,12 +78,23 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 }
 
+// RunOnce runs a single iteration of the task runner (for testing).
+func (r *Runner) RunOnce(ctx context.Context) {
+	r.runOne(ctx)
+}
+
 func (r *Runner) runOne(ctx context.Context) {
 	pending, err := r.taskStore.List(ListFilters{Status: StatusPending})
 	if err != nil || len(pending) == 0 {
 		return
 	}
 	task := pending[0]
+	ctx, end := observability.StartSpan(ctx, "task.run",
+		attribute.String("task_id", task.ID),
+		attribute.String("robot_id", task.RobotID),
+		attribute.String("scenario_id", task.ScenarioID),
+	)
+	defer end()
 	hasRunning, err := r.taskStore.HasRunningForRobot(task.RobotID)
 	if err != nil || hasRunning {
 		return
@@ -88,16 +110,11 @@ func (r *Runner) runOne(ctx context.Context) {
 	}
 	robot := r.registry.Get(task.RobotID)
 	if !hal.HasCapability(robot, scenario.RequiredCapabilities) {
-		log.Printf("[task-runner] robot %s lacks required capabilities for scenario %s", task.RobotID, task.ScenarioID)
+		slog.Warn("task-runner robot lacks capabilities", "robot_id", task.RobotID, "scenario_id", task.ScenarioID)
 		_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusFailed, time.Now())
 		r.emitTaskCompleted(task.ID, task.RobotID, string(StatusFailed))
 		return
 	}
-	if err := r.taskStore.UpdateStatus(task.ID, StatusRunning); err != nil {
-		return
-	}
-	task.Status = StatusRunning
-
 	// Execute steps
 	var taskPayload struct {
 		DurationSec int     `json:"duration_sec"`
@@ -113,20 +130,44 @@ func (r *Runner) runOne(ctx context.Context) {
 		taskPayload.DurationSec = 30
 	}
 
+	if err := r.taskStore.UpdateStatus(task.ID, StatusRunning); err != nil {
+		return
+	}
+	task.Status = StatusRunning
+	if r.onTaskStarted != nil {
+		r.onTaskStarted(task.ID, task.RobotID, task.ScenarioID, taskPayload.ZoneID)
+	}
+
 	// Zone coordination: acquire zone for patrol/navigation if zone_id in payload
 	if r.coordinator != nil && taskPayload.ZoneID != "" && (task.ScenarioID == "patrol" || task.ScenarioID == "navigation") {
 		if !r.coordinator.AcquireZone(task.RobotID, taskPayload.ZoneID) {
-			log.Printf("[task-runner] zone %s occupied, task %s failed", taskPayload.ZoneID, task.ID)
+			slog.Warn("task-runner zone occupied", "zone_id", taskPayload.ZoneID, "task_id", task.ID)
 			_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusFailed, time.Now())
 			r.emitTaskCompleted(task.ID, task.RobotID, string(StatusFailed))
 			return
 		}
+		if r.onZoneAcquired != nil {
+			r.onZoneAcquired(task.RobotID, taskPayload.ZoneID, task.ID)
+		}
 		defer func() {
+			if r.onZoneReleased != nil {
+				r.onZoneReleased(task.RobotID, taskPayload.ZoneID, task.ID)
+			}
 			r.coordinator.ReleaseZone(task.RobotID, taskPayload.ZoneID)
 		}()
 	}
 
 	for i, step := range scenario.Steps {
+		// Check context cancellation (e.g. graceful shutdown) before each step
+		select {
+		case <-ctx.Done():
+			now := time.Now()
+			_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusCancelled, now)
+			r.emitTaskCompleted(task.ID, task.RobotID, string(StatusCancelled))
+			r.sendSafeStop(task.RobotID, task.OperatorID)
+			return
+		default:
+		}
 		// Check cancel before each step
 		t, _ := r.taskStore.Get(task.ID)
 		if t != nil && t.Status == StatusCancelled {
@@ -161,13 +202,13 @@ func (r *Runner) runOne(ctx context.Context) {
 			OperatorID: task.OperatorID,
 		}
 		if !arbiter.SafetyAllow(cmd) {
-			log.Printf("[task-runner] safety rejected step %d of task %s", i+1, task.ID)
+			slog.Warn("task-runner safety rejected step", "step", i+1, "task_id", task.ID)
 			_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusFailed, time.Now())
 			r.emitTaskCompleted(task.ID, task.RobotID, string(StatusFailed))
 			return
 		}
 		if err := r.bus.PublishCommand(cmd); err != nil {
-			log.Printf("[task-runner] failed to publish command: %v", err)
+			slog.Error("task-runner failed to publish command", "error", err)
 			_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusFailed, time.Now())
 			r.emitTaskCompleted(task.ID, task.RobotID, string(StatusFailed))
 			return
@@ -178,6 +219,10 @@ func (r *Runner) runOne(ctx context.Context) {
 			for time.Now().Before(deadline) {
 				select {
 				case <-ctx.Done():
+					now := time.Now()
+					_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusCancelled, now)
+					r.emitTaskCompleted(task.ID, task.RobotID, string(StatusCancelled))
+					r.sendSafeStop(task.RobotID, task.OperatorID)
 					return
 				default:
 					t, _ := r.taskStore.Get(task.ID)
@@ -197,7 +242,7 @@ func (r *Runner) runOne(ctx context.Context) {
 	now := time.Now()
 	_ = r.taskStore.UpdateStatusAndCompletedAt(task.ID, StatusCompleted, now)
 	r.emitTaskCompleted(task.ID, task.RobotID, string(StatusCompleted))
-	log.Printf("[task-runner] task %s completed", task.ID)
+	slog.Info("task-runner task completed", "task_id", task.ID)
 }
 
 func (r *Runner) emitTaskCompleted(taskID, robotID, status string) {

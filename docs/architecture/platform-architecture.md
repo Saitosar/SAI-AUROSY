@@ -134,8 +134,10 @@ E4 --> F4
 - **Safety Supervisor** — контроль безопасности.
 - **Event Broker** — шина событий.
 - **Telemetry Bus** — шина телеметрии.
-- **Streaming Gateway** — потоковая передача данных.
-- **Cognitive Gateway** — когнитивные/AI-сервисы.
+- **Streaming Gateway** — потоковая передача данных (SSE: фильтры robot_id, reconnect Last-Event-ID, backpressure). См. [Phase 3.1 Streaming Gateway](../implementation/phase-3.1-streaming-gateway.md).
+- **Cognitive Gateway** — когнитивные/AI-сервисы (навигация, распознавание, планирование). См. [Cognitive Gateway](cognitive-gateway.md), [Phase 3.2](../implementation/phase-3.2-cognitive-gateway.md).
+- **Developer Platform** — API keys self-service, sandbox tenant, Swagger UI, developer docs. См. [Phase 3.3](../implementation/phase-3.3-developer-platform.md).
+- **Robot Application Marketplace** — каталог сценариев, категории, рейтинги. См. [Phase 3.4](../implementation/phase-3.4-marketplace.md).
 
 ### Robot Abstraction Layer
 
@@ -154,8 +156,20 @@ E4 --> F4
 
 Подробнее: [Adapter Layer](adapter-layer.md).
 
+## Tenant Isolation
+
+- **Operator** — ограничен tenant (из API key или JWT claim `tenant_id`). Видит только роботов, задачи, телеметрию, analytics и workflow runs своего tenant.
+- **Administrator** — доступ ко всем tenants, может фильтровать по `?tenant_id=`.
+- **Enforcement points** — robots, tasks, commands, telemetry stream, analytics, workflows, edges. См. [Phase 2.6 Multi-Tenant](../implementation/phase-2.6-multi-tenant.md).
+
+## Control Plane and Workforce Split
+
+For scaling, Control Plane and Workforce can run as separate services. Control Plane handles API, auth, registry, streaming; Workforce runs the task engine, analytics consumer, webhook delivery, and telemetry retention. Both share the same database and NATS. See [Control Plane and Workforce Split](control-plane-workforce-split.md).
+
 ## Related Documents
 
 - [Multi-Robot Architecture](multi-robot-architecture.md)
 - [Adapter Layer](adapter-layer.md)
 - [Deployment Model](deployment-model.md)
+- [Cognitive Gateway](cognitive-gateway.md)
+- [Control Plane and Workforce Split](control-plane-workforce-split.md)

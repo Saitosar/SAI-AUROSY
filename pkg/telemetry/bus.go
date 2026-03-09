@@ -61,6 +61,33 @@ func (b *Bus) SubscribeAllTelemetry(handler func(*hal.Telemetry)) (*nats.Subscri
 	})
 }
 
+// SubscribeTelemetryMultiple subscribes to telemetry for multiple robots.
+// Returns a combined subscription that can be unsubscribed once.
+func (b *Bus) SubscribeTelemetryMultiple(robotIDs []string, handler func(*hal.Telemetry)) (*nats.Subscription, error) {
+	if len(robotIDs) == 0 {
+		return nil, fmt.Errorf("robot_ids required")
+	}
+	if len(robotIDs) == 1 {
+		return b.SubscribeTelemetry(robotIDs[0], handler)
+	}
+	// Use queue subscription on wildcard to receive from all specified robots
+	subject := fmt.Sprintf("%s.>", TopicTelemetryPrefix)
+	allowed := make(map[string]bool, len(robotIDs))
+	for _, id := range robotIDs {
+		allowed[id] = true
+	}
+	return b.nc.Subscribe(subject, func(msg *nats.Msg) {
+		var t hal.Telemetry
+		if err := json.Unmarshal(msg.Data, &t); err != nil {
+			return
+		}
+		if !allowed[t.RobotID] {
+			return
+		}
+		handler(&t)
+	})
+}
+
 // PublishCommand publishes a command to a robot.
 func (b *Bus) PublishCommand(cmd *hal.Command) error {
 	topic := fmt.Sprintf("%s.%s", TopicCommandsPrefix, cmd.RobotID)

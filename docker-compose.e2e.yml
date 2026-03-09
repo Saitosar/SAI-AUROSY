@@ -1,0 +1,30 @@
+# E2E with auth and DB. Use: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+# Seeds API key "e2e-api-key" (operator, tenant default) via migration 000023.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: saiaurosy
+      POSTGRES_PASSWORD: saiaurosy
+      POSTGRES_DB: saiaurosy
+    volumes:
+      - postgres_e2e_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saiaurosy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  control-plane:
+    environment:
+      REGISTRY_DB_DRIVER: pgx
+      REGISTRY_DB_DSN: postgres://saiaurosy:saiaurosy@postgres:5432/saiaurosy?sslmode=disable
+      AUTH_REQUIRED: "true"
+      ALLOW_UNSAFE_NO_AUTH: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_e2e_data:

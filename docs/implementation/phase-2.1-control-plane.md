@@ -126,12 +126,16 @@ VALUES ('key-1', '<sha256_hex_of_secret>', 'integration', 'operator', 'default',
 
 Использование: заголовок `X-API-Key: <raw_key>`.
 
+Поле `tenant_id` определяет scope доступа для роли operator: operator видит только данные своего tenant.
+
+JWT может содержать claim `tenant_id` для ограничения scope: при наличии этого claim в payload оператор ограничен данным tenant (аналогично API key с tenant_id).
+
 ## RBAC
 
 | Роль | Доступ |
 |------|--------|
-| operator | GET robots, POST command, telemetry stream |
-| administrator | Всё выше + POST/PUT/DELETE robots |
+| operator | GET robots, POST command, telemetry stream. Ограничен tenant_id из API key. |
+| administrator | Всё выше + POST/PUT/DELETE robots. Доступ ко всем tenants. |
 | system | Внутренние вызовы, API keys |
 
 ## Ссылки

@@ -33,7 +33,7 @@ Workforce Orchestration
 Coordinating multiple robots to perform enterprise workflows.
 
 Enterprise Integration  
-Integrating robots with CRM, ERP, ticketing systems, and internal APIs.
+Integrating robots with CRM, ERP, ticketing systems, and internal APIs. OAuth 2.0 for third-party apps, webhooks for events, REST API documentation, and Go SDK. See [Integration Guide](../integration/README.md).
 
 Analytics  
 Collecting and analyzing robot telemetry and operational data.

@@ -42,6 +42,9 @@ func (a *Agent) Sync(ctx context.Context) error {
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	if a.cfg.APIKey != "" {
+		httpReq.Header.Set("X-API-Key", a.cfg.APIKey)
+	}
 
 	resp, err := a.httpClient.Do(httpReq)
 	if err != nil {

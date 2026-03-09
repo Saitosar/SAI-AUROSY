@@ -44,14 +44,14 @@ func (s *SQLRunStore) Create(run *WorkflowRun) error {
 	if run.CreatedAt.IsZero() {
 		run.CreatedAt = now
 	}
-	_, err := s.db.Exec(s.ph("INSERT INTO workflow_runs (id, workflow_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"),
-		run.ID, run.WorkflowID, string(run.Status), run.CreatedAt, run.UpdatedAt)
+	_, err := s.db.Exec(s.ph("INSERT INTO workflow_runs (id, workflow_id, tenant_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"),
+		run.ID, run.WorkflowID, run.TenantID, string(run.Status), run.CreatedAt, run.UpdatedAt)
 	return err
 }
 
 // List returns all workflow runs.
 func (s *SQLRunStore) List() ([]WorkflowRun, error) {
-	rows, err := s.db.Query("SELECT id, workflow_id, status, created_at, updated_at FROM workflow_runs ORDER BY created_at DESC LIMIT 50")
+	rows, err := s.db.Query("SELECT id, workflow_id, COALESCE(tenant_id,''), status, created_at, updated_at FROM workflow_runs ORDER BY created_at DESC LIMIT 50")
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (s *SQLRunStore) List() ([]WorkflowRun, error) {
 	var out []WorkflowRun
 	for rows.Next() {
 		var run WorkflowRun
-		if err := rows.Scan(&run.ID, &run.WorkflowID, &run.Status, &run.CreatedAt, &run.UpdatedAt); err != nil {
+		if err := rows.Scan(&run.ID, &run.WorkflowID, &run.TenantID, &run.Status, &run.CreatedAt, &run.UpdatedAt); err != nil {
 			continue
 		}
 		out = append(out, run)
@@ -70,9 +70,9 @@ func (s *SQLRunStore) List() ([]WorkflowRun, error) {
 // Get returns a workflow run by ID.
 func (s *SQLRunStore) Get(id string) (*WorkflowRun, error) {
 	var run WorkflowRun
-	err := s.db.QueryRow(s.ph("SELECT id, workflow_id, status, created_at, updated_at FROM workflow_runs WHERE id=?"),
+	err := s.db.QueryRow(s.ph("SELECT id, workflow_id, COALESCE(tenant_id,''), status, created_at, updated_at FROM workflow_runs WHERE id=?"),
 		id,
-	).Scan(&run.ID, &run.WorkflowID, &run.Status, &run.CreatedAt, &run.UpdatedAt)
+	).Scan(&run.ID, &run.WorkflowID, &run.TenantID, &run.Status, &run.CreatedAt, &run.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -97,6 +97,12 @@ func (s *SQLRunStore) Get(id string) (*WorkflowRun, error) {
 // UpdateStatus updates the run status.
 func (s *SQLRunStore) UpdateStatus(id string, status WorkflowRunStatus) error {
 	_, err := s.db.Exec(s.ph("UPDATE workflow_runs SET status=?, updated_at=? WHERE id=?"), string(status), time.Now(), id)
+	return err
+}
+
+// UpdateTenantID sets the tenant ID for a workflow run.
+func (s *SQLRunStore) UpdateTenantID(runID, tenantID string) error {
+	_, err := s.db.Exec(s.ph("UPDATE workflow_runs SET tenant_id=?, updated_at=? WHERE id=?"), tenantID, time.Now(), runID)
 	return err
 }
 

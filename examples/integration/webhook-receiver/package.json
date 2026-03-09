@@ -1,0 +1,12 @@
+{
+  "name": "sai-aurosy-webhook-receiver",
+  "version": "1.0.0",
+  "description": "Webhook receiver for SAI AUROSY events with HMAC verification",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}

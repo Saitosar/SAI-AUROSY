@@ -1,15 +1,18 @@
 package orchestration
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/sai-aurosy/platform/pkg/control-plane/observability"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
 	"github.com/sai-aurosy/platform/pkg/control-plane/tasks"
 	"github.com/sai-aurosy/platform/pkg/hal"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 // Runner runs workflows by creating tasks and tracking runs.
@@ -43,7 +46,18 @@ var ErrWorkflowNotFound = errors.New("workflow not found")
 
 // Run starts a workflow by creating tasks for each step.
 // Resolves robot_selector to pick available robots with required capabilities.
-func (r *Runner) Run(workflowID, operatorID string) (*RunResult, error) {
+// When tenantID is non-empty, only robots from that tenant are considered.
+func (r *Runner) Run(ctx context.Context, workflowID, operatorID, tenantID string) (*RunResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, end := observability.StartSpan(ctx, "workflow.run",
+		attribute.String("workflow_id", workflowID),
+		attribute.String("operator_id", operatorID),
+		attribute.String("tenant_id", tenantID),
+	)
+	defer end()
+
 	wf, ok := r.workflowCatalog.Get(workflowID)
 	if !ok {
 		return nil, ErrWorkflowNotFound
@@ -61,33 +75,50 @@ func (r *Runner) Run(workflowID, operatorID string) (*RunResult, error) {
 	for i, step := range wf.Steps {
 		robotID := step.RobotID
 		if robotID == "" && step.RobotSelector != nil {
-			robotID = r.resolveSelector(step.RobotSelector, usedRobots)
+			robotID = r.resolveSelector(step.RobotSelector, usedRobots, tenantID)
 		}
 		if robotID == "" {
-			robotID = r.pickAvailableRobot(step.ScenarioID, usedRobots)
+			robotID = r.pickAvailableRobot(step.ScenarioID, usedRobots, tenantID)
+		}
+		if robotID != "" && tenantID != "" {
+			robot := r.registry.Get(robotID)
+			if robot != nil && robot.TenantID != tenantID {
+				robotID = "" // reject robot from other tenant
+			}
 		}
 		if robotID == "" {
-			log.Printf("[orchestration] no available robot for step %d of workflow %s", i, workflowID)
+			slog.Warn("orchestration no available robot", "step", i, "workflow_id", workflowID)
 			_ = r.runStore.UpdateStatus(run.ID, WorkflowRunFailed)
 			return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
 		}
 		scenario, ok := r.scenarioCatalog.Get(step.ScenarioID)
 		if !ok {
-			log.Printf("[orchestration] scenario %s not found", step.ScenarioID)
+			slog.Warn("orchestration scenario not found", "scenario_id", step.ScenarioID)
 			_ = r.runStore.UpdateStatus(run.ID, WorkflowRunFailed)
 			return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
 		}
 		robot := r.registry.Get(robotID)
 		if !hal.HasCapability(robot, scenario.RequiredCapabilities) {
-			log.Printf("[orchestration] robot %s lacks capabilities for scenario %s", robotID, step.ScenarioID)
+			slog.Warn("orchestration robot lacks capabilities", "robot_id", robotID, "scenario_id", step.ScenarioID)
 			_ = r.runStore.UpdateStatus(run.ID, WorkflowRunFailed)
 			return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
 		}
 		hasRunning, _ := r.taskStore.HasRunningForRobot(robotID)
 		if hasRunning {
-			log.Printf("[orchestration] robot %s already has running task", robotID)
+			slog.Warn("orchestration robot already has running task", "robot_id", robotID)
 			_ = r.runStore.UpdateStatus(run.ID, WorkflowRunFailed)
 			return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
+		}
+		if run.TenantID == "" {
+			run.TenantID = robot.TenantID
+			if run.TenantID == "" {
+				run.TenantID = "default"
+			}
+			_ = r.runStore.UpdateTenantID(run.ID, run.TenantID)
+		}
+		taskTenantID := robot.TenantID
+		if taskTenantID == "" {
+			taskTenantID = "default"
 		}
 		payload := step.Payload
 		if len(payload) == 0 && step.ZoneID != "" {
@@ -96,6 +127,7 @@ func (r *Runner) Run(workflowID, operatorID string) (*RunResult, error) {
 		t := &tasks.Task{
 			ID:         uuid.New().String(),
 			RobotID:    robotID,
+			TenantID:   taskTenantID,
 			Type:       "scenario",
 			ScenarioID: step.ScenarioID,
 			Payload:    payload,
@@ -103,7 +135,7 @@ func (r *Runner) Run(workflowID, operatorID string) (*RunResult, error) {
 			OperatorID: operatorID,
 		}
 		if err := r.taskStore.Create(t); err != nil {
-			log.Printf("[orchestration] failed to create task: %v", err)
+			slog.Error("orchestration failed to create task", "error", err)
 			_ = r.runStore.UpdateStatus(run.ID, WorkflowRunFailed)
 			return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
 		}
@@ -114,8 +146,13 @@ func (r *Runner) Run(workflowID, operatorID string) (*RunResult, error) {
 	return &RunResult{WorkflowRunID: run.ID, TaskIDs: taskIDs}, nil
 }
 
-func (r *Runner) resolveSelector(sel *RobotSelector, used map[string]bool) string {
-	robots := r.registry.List()
+func (r *Runner) resolveSelector(sel *RobotSelector, used map[string]bool, tenantID string) string {
+	var robots []hal.Robot
+	if tenantID != "" {
+		robots = r.registry.ListByTenant(tenantID)
+	} else {
+		robots = r.registry.List()
+	}
 	for _, robot := range robots {
 		if used[robot.ID] {
 			continue
@@ -132,12 +169,17 @@ func (r *Runner) resolveSelector(sel *RobotSelector, used map[string]bool) strin
 	return ""
 }
 
-func (r *Runner) pickAvailableRobot(scenarioID string, used map[string]bool) string {
+func (r *Runner) pickAvailableRobot(scenarioID string, used map[string]bool, tenantID string) string {
 	scenario, ok := r.scenarioCatalog.Get(scenarioID)
 	if !ok {
 		return ""
 	}
-	robots := r.registry.List()
+	var robots []hal.Robot
+	if tenantID != "" {
+		robots = r.registry.ListByTenant(tenantID)
+	} else {
+		robots = r.registry.List()
+	}
 	for _, robot := range robots {
 		if used[robot.ID] {
 			continue

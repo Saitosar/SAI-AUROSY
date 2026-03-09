@@ -15,10 +15,17 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       CONTROL_PLANE_ADDR: ":8080"
+      ALLOW_UNSAFE_NO_AUTH: "true"
       # Phase 2.1 (опционально):
       # REGISTRY_DB_DRIVER: sqlite
       # REGISTRY_DB_DSN: file:/data/registry.db
       # LOG_FORMAT: json
+      # Cognitive Gateway (Phase 3.2):
+      # COGNITIVE_PROVIDER: mock
+      # COGNITIVE_HTTP_NAV_URL: http://nav-service:8080/navigate
+      # COGNITIVE_HTTP_RECOGNIZE_URL: http://vision-api:5000/detect
+      # COGNITIVE_HTTP_PLAN_URL: http://planner:8000/plan
+      # COGNITIVE_HTTP_API_KEY: <optional-api-key>
     depends_on:
       - nats
 
@@ -52,3 +59,12 @@ services:
       UNITREE_MOCK: "1"
     depends_on:
       - nats
+
+  webhook-receiver:
+    build:
+      context: ./examples/integration/webhook-receiver
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: "5000"

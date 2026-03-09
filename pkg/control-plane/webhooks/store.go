@@ -21,6 +21,9 @@ const (
 	EventRobotOnline    = "robot_online"
 	EventTaskCompleted  = "task_completed"
 	EventSafeStop       = "safe_stop"
+	EventTaskStarted    = "task_started"
+	EventZoneAcquired   = "zone_acquired"
+	EventZoneReleased   = "zone_released"
 )
 
 // Store is the interface for webhook persistence.

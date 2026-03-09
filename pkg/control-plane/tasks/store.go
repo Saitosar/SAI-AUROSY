@@ -7,8 +7,9 @@ import (
 
 // ListFilters filters tasks for List.
 type ListFilters struct {
-	RobotID string
-	Status  Status
+	RobotID  string
+	TenantID string
+	Status   Status
 }
 
 // Store is the task store interface.
@@ -66,6 +67,9 @@ func (s *MemoryStore) List(filters ListFilters) ([]Task, error) {
 	var out []Task
 	for _, t := range s.tasks {
 		if filters.RobotID != "" && t.RobotID != filters.RobotID {
+			continue
+		}
+		if filters.TenantID != "" && t.TenantID != filters.TenantID {
 			continue
 		}
 		if filters.Status != "" && t.Status != filters.Status {

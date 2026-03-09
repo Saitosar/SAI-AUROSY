@@ -49,6 +49,7 @@ type WorkflowRunTask struct {
 type WorkflowRun struct {
 	ID         string            `json:"id"`
 	WorkflowID string            `json:"workflow_id"`
+	TenantID   string            `json:"tenant_id,omitempty"`
 	Status     WorkflowRunStatus  `json:"status"`
 	CreatedAt  time.Time         `json:"created_at"`
 	UpdatedAt  time.Time         `json:"updated_at"`
