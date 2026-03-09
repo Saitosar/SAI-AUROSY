@@ -51,6 +51,8 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 **Phase 3.5** — Speech Layer: STT, TTS, intent extraction, Conversation Catalog, multilingual (uz, en, ru, az, ar). See [Phase 3.5 Speech Layer](docs/implementation/phase-3.5-speech-layer.md) and [Speech Layer Architecture](docs/architecture/speech-layer.md).
 
+**Mall Assistant Scenario** — First end-to-end interactive scenario: greet visitors, answer store-location questions, guide to stores, return to standby. See [Mall Assistant Scenario](docs/implementation/mall-assistant-scenario.md).
+
 **Phase 3.3** — Developer Platform: API keys self-service, sandbox tenant, Swagger UI at /api/docs. See [Phase 3.3 Developer Platform](docs/implementation/phase-3.3-developer-platform.md).
 
 **Phase 3.4** — Robot Application Marketplace: catalog of scenarios, categories, ratings, Operator Console section. See [Phase 3.4 Marketplace](docs/implementation/phase-3.4-marketplace.md).
@@ -74,6 +76,7 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 - [Platform architecture](docs/architecture/platform-architecture.md)
 - [MVP V1 architecture](docs/architecture/mvp-v1-architecture.md)
 - [Control Plane and Workforce split](docs/architecture/control-plane-workforce-split.md)
+- [Mall Digital Twin](docs/architecture/mall-digital-twin.md) — mall map, navigation graph, route planning
 
 ## Integration
 

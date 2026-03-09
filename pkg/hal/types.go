@@ -29,14 +29,17 @@ type JointStateData struct {
 
 // Telemetry is the normalized telemetry payload published to the Telemetry Bus.
 type Telemetry struct {
-	RobotID        string            `json:"robot_id"`
-	Timestamp      time.Time         `json:"timestamp"`
-	Online         bool              `json:"online"`
-	ActuatorStatus string            `json:"actuator_status"` // enabled, disabled, error, calibration
-	MockMode       bool              `json:"mock_mode,omitempty"`
-	IMU            *IMUData          `json:"imu,omitempty"`
-	JointStates    []JointStateData  `json:"joint_states,omitempty"`
-	CurrentTask    string            `json:"current_task"` // idle, zero, stand, walk
+	RobotID         string           `json:"robot_id"`
+	Timestamp       time.Time        `json:"timestamp"`
+	Online          bool             `json:"online"`
+	ActuatorStatus  string           `json:"actuator_status"` // enabled, disabled, error, calibration
+	MockMode        bool             `json:"mock_mode,omitempty"`
+	IMU             *IMUData         `json:"imu,omitempty"`
+	JointStates     []JointStateData  `json:"joint_states,omitempty"`
+	CurrentTask     string           `json:"current_task"` // idle, zero, stand, walk
+	Position         string   `json:"position,omitempty"`          // "x,y,z" for arrival detection
+	TargetPosition   string   `json:"target_position,omitempty"`
+	DistanceToTarget *float64 `json:"distance_to_target,omitempty"` // meters; nil if adapter does not report
 }
 
 // IMUData holds orientation and angular velocity from IMU.

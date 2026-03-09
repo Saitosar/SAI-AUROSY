@@ -64,7 +64,14 @@ const KNOWN_CAPABILITIES = [
   'zero_mode',
   'patrol',
   'navigation',
+  'speech',
 ]
+
+const MALL_ASSISTANT_STATUS = {
+  idle: 'Idle',
+  guiding_visitor: 'Guiding Visitor',
+  returning_to_base: 'Returning to Base',
+}
 
 const STATUS_LABELS = {
   pending: 'Ожидание',
@@ -1131,13 +1138,15 @@ function formatRelativeTime(ts) {
   return d.toLocaleString()
 }
 
-function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, showTenant, readOnly }) {
+function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, showTenant, readOnly, mallAssistantTask, mallAssistantStatus, onStartMallAssistant, onVisitorRequest }) {
   const t = telemetry[robot.id] || {}
   const online = t.online ?? false
   const mockMode = t.mock_mode ?? false
   const hasTelemetry = Object.keys(t).length > 0
   const actuatorStatus = t.actuator_status || 'unknown'
   const currentTask = t.current_task || '-'
+  const [visitorText, setVisitorText] = useState('')
+  const [visitorSubmitting, setVisitorSubmitting] = useState(false)
   const jointStates = t.joint_states || []
   const [linearX, setLinearX] = useState(0)
   const [linearY, setLinearY] = useState(0)
@@ -1213,8 +1222,61 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, s
               {mockMode ? 'Mock' : 'Live'}
             </span>
           )}
+          {mallAssistantTask && (
+            <span
+              title="Mall Assistant scenario"
+              style={{
+                padding: '4px 8px',
+                borderRadius: 4,
+                fontSize: 12,
+                background: '#7c3aed',
+                color: '#e9d5ff',
+              }}
+            >
+              {MALL_ASSISTANT_STATUS[mallAssistantStatus] || 'Idle'}
+            </span>
+          )}
         </div>
       </div>
+      {mallAssistantTask && onVisitorRequest && !readOnly && (
+        <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase' }}>Simulate visitor request</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="e.g. Where is Nike?"
+              value={visitorText}
+              onChange={(e) => setVisitorText(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 140,
+                padding: '6px 10px',
+                borderRadius: 4,
+                border: '1px solid #334155',
+                background: '#1e293b',
+                color: '#e2e8f0',
+                fontSize: 13,
+              }}
+            />
+            <button
+              onClick={async () => {
+                if (!visitorText.trim()) return
+                setVisitorSubmitting(true)
+                try {
+                  await onVisitorRequest(robot.id, visitorText.trim())
+                  setVisitorText('')
+                } finally {
+                  setVisitorSubmitting(false)
+                }
+              }}
+              disabled={visitorSubmitting || !visitorText.trim()}
+              style={{ ...buttonBase, background: '#7c3aed', color: 'white' }}
+            >
+              {visitorSubmitting ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
         <button
           onClick={() => setHistoryExpanded(!historyExpanded)}
@@ -1273,6 +1335,14 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, s
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>Команды</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {!mallAssistantTask && onStartMallAssistant && (
+                <button
+                  onClick={() => onStartMallAssistant(robot.id)}
+                  style={{ ...buttonBase, background: '#7c3aed', color: 'white' }}
+                >
+                  Start Mall Assistant
+                </button>
+              )}
               <button
                 onClick={() => onSafeStop(robot.id)}
                 style={{ ...buttonBase, background: '#dc2626', color: 'white', fontWeight: 600 }}
@@ -1423,6 +1493,7 @@ export default function App() {
     }
   })
   const [toasts, setToasts] = useState([])
+  const [mallAssistantStatus, setMallAssistantStatus] = useState({})
 
   const addToast = useCallback((type, message) => {
     const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -1579,8 +1650,21 @@ export default function App() {
           addToast('safe_stop', `Safe Stop: ${data.robot_id || 'робот'}`)
         } else if (type === 'robot_online') {
           addToast('robot_online', `Робот онлайн: ${data.robot_id || 'робот'}`)
-        } else if (type === 'task_completed') {
+        } else         if (type === 'task_completed') {
           addToast('task_completed', `Задача завершена: ${data.robot_id || ''} — ${data.status || ''}`)
+          if (data.robot_id) setMallAssistantStatus((prev) => ({ ...prev, [data.robot_id]: null }))
+        }
+        if (type === 'visitor_interaction_started' && data.robot_id) {
+          setMallAssistantStatus((prev) => ({ ...prev, [data.robot_id]: 'idle' }))
+        }
+        if (type === 'navigation_started' && data.robot_id) {
+          setMallAssistantStatus((prev) => ({ ...prev, [data.robot_id]: 'guiding_visitor' }))
+        }
+        if (type === 'navigation_completed' && data.robot_id) {
+          setMallAssistantStatus((prev) => ({ ...prev, [data.robot_id]: 'guiding_visitor' }))
+        }
+        if (type === 'visitor_interaction_finished' && data.robot_id) {
+          setMallAssistantStatus((prev) => ({ ...prev, [data.robot_id]: 'returning_to_base' }))
         }
       } catch (_) {}
     }
@@ -1627,6 +1711,37 @@ export default function App() {
 
   const handleTaskCreated = (task) => {
     setTasks((prev) => [task, ...prev])
+    if (task.scenario_id === 'mall_assistant' && task.status === 'running') {
+      setMallAssistantStatus((prev) => ({ ...prev, [task.robot_id]: 'idle' }))
+    }
+  }
+
+  const handleStartMallAssistant = async (robotId) => {
+    const res = await apiFetch(`${API_BASE}/scenarios/mall_assistant/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ robot_id: robotId, operator_id: 'console' }),
+    })
+    if (res.ok) {
+      const task = await res.json()
+      setTasks((prev) => [task, ...prev])
+      setMallAssistantStatus((prev) => ({ ...prev, [robotId]: 'idle' }))
+    } else {
+      const text = await res.text()
+      alert(text || 'Failed to start Mall Assistant')
+    }
+  }
+
+  const handleVisitorRequest = async (robotId, text) => {
+    const res = await apiFetch(`${API_BASE}/scenarios/mall_assistant/visitor-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ robot_id: robotId, text }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      alert(text || 'Failed to send visitor request')
+    }
   }
 
   if (loading) return <div style={{ padding: 24 }}>Loading...</div>
@@ -1701,18 +1816,25 @@ export default function App() {
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', fontWeight: 600 }}>
               {loc}
             </div>
-            {byLocation[loc].map((r) => (
-              <RobotCard
-                key={r.id}
-                robot={r}
-                telemetry={telemetry}
-                onCommand={handleCommand}
-                onSafeStop={handleSafeStopClick}
-                lastCommandSent={lastCommandSent}
-                showTenant={!selectedTenantId}
-                readOnly={readOnly}
-              />
-            ))}
+            {byLocation[loc].map((r) => {
+              const mallAssistantTask = tasks.find((t) => t.robot_id === r.id && t.scenario_id === 'mall_assistant' && (t.status === 'pending' || t.status === 'running'))
+              return (
+                <RobotCard
+                  key={r.id}
+                  robot={r}
+                  telemetry={telemetry}
+                  onCommand={handleCommand}
+                  onSafeStop={handleSafeStopClick}
+                  lastCommandSent={lastCommandSent}
+                  showTenant={!selectedTenantId}
+                  readOnly={readOnly}
+                  mallAssistantTask={mallAssistantTask}
+                  mallAssistantStatus={mallAssistantStatus[r.id]}
+                  onStartMallAssistant={handleStartMallAssistant}
+                  onVisitorRequest={handleVisitorRequest}
+                />
+              )
+            })}
           </div>
         ))
       })()}

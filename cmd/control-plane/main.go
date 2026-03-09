@@ -33,7 +33,10 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/streaming"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics/retention"
+	"github.com/sai-aurosy/platform/internal/mall"
+	"github.com/sai-aurosy/platform/internal/robot"
 	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
+	"github.com/sai-aurosy/platform/pkg/control-plane/mallassistant"
 	"github.com/sai-aurosy/platform/pkg/control-plane/marketplace"
 	"github.com/sai-aurosy/platform/pkg/control-plane/tasks"
 	"github.com/sai-aurosy/platform/pkg/control-plane/tenants"
@@ -176,9 +179,52 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	cogCfg, err := cognitive.LoadConfig()
+	if err != nil {
+		log.Fatalf("cognitive config: %v", err)
+	}
+	cogGateway, err := cognitive.NewGateway(*cogCfg)
+	if err != nil {
+		log.Fatalf("cognitive gateway: %v", err)
+	}
+
+	mallRequestRegistry := mallassistant.NewVisitorRequestRegistry()
+	mallRepo := mall.NewMemoryRepository("scenarios/data/mall_map.json")
+	mallService := mall.NewService(mallRepo)
+	var mallAssistantHandler *mallassistant.Handler
+	if !workforceRemote {
+		mallAssistantHandler = mallassistant.NewHandler(bus, cogGateway, taskStore, eventBroadcaster, mallRequestRegistry, mallassistant.HandlerConfig{
+			MallService: mallService,
+			OnTaskCompleted: func(taskID, robotID, status string) {
+				data := map[string]any{"task_id": taskID, "robot_id": robotID, "status": status}
+				webhookDispatcher.Dispatch(context.Background(), webhooks.EventTaskCompleted, data)
+				eventBroadcaster.Broadcast(webhooks.EventTaskCompleted, data)
+			},
+		})
+	}
+
+	var executionEngine *robot.RobotExecutionEngine
+	if !workforceRemote {
+		stateManager := robot.NewStateManager()
+		navExecutor := robot.NewNavigationExecutor(bus, stateManager, 1.0, 60*time.Second)
+		taskExecutor := robot.NewTaskExecutor(navExecutor)
+		executionEngine = robot.NewExecutionEngine(stateManager, taskExecutor, bus, robot.ExecutionEngineConfig{
+			EventBroadcaster:    eventBroadcaster,
+			TaskStore:          taskStore,
+			TimeoutAsCompletion: true,
+			OnTaskCompleted: func(taskID, robotID, status string) {
+				data := map[string]any{"task_id": taskID, "robot_id": robotID, "status": status}
+				webhookDispatcher.Dispatch(context.Background(), webhooks.EventTaskCompleted, data)
+				eventBroadcaster.Broadcast(webhooks.EventTaskCompleted, data)
+			},
+		})
+	}
+
 	var taskRunner *tasks.Runner
 	if !workforceRemote {
 		taskRunner = tasks.NewRunnerWithCoordinator(taskStore, scenarioCatalog, reg, bus, coord, tasks.RunnerConfig{
+		MallAssistantRunner: mallAssistantHandler,
+		ExecutionEngine:     executionEngine,
 		OnTaskCompleted: func(taskID, robotID, status string) {
 			data := map[string]any{"task_id": taskID, "robot_id": robotID, "status": status}
 			webhookDispatcher.Dispatch(context.Background(), webhooks.EventTaskCompleted, data)
@@ -254,14 +300,6 @@ func main() {
 		cancel()
 	}()
 
-	cogCfg, err := cognitive.LoadConfig()
-	if err != nil {
-		log.Fatalf("cognitive config: %v", err)
-	}
-	cogGateway, err := cognitive.NewGateway(*cogCfg)
-	if err != nil {
-		log.Fatalf("cognitive gateway: %v", err)
-	}
 	var marketplaceStore marketplace.Store
 	if db != nil {
 		marketplaceStore = marketplace.NewSQLStore(db, driver)
@@ -274,7 +312,11 @@ func main() {
 		convStore := conversations.NewMemoryStore()
 		conversationCatalog = conversations.NewCatalog(convStore)
 	}
-	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster)
+	var robotStateProvider robot.RobotStateProvider
+	if executionEngine != nil {
+		robotStateProvider = executionEngine
+	}
+	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster, mallAssistantHandler, mallService, robotStateProvider)
 	r := mux.NewRouter()
 
 	healthHandler := health.NewHandler(bus, db)
@@ -416,8 +458,8 @@ func runRobotOnlineWatcher(ctx context.Context, bus *telemetry.Bus, dispatcher *
 }
 
 func seedRobots(reg registry.Store) {
-	agibotCaps := []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation}
-	unitreeCaps := []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation}
+	agibotCaps := []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation, hal.CapSpeech}
+	unitreeCaps := []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation, hal.CapSpeech}
 	reg.Add(&hal.Robot{
 		ID:              "x1-001",
 		Vendor:          "agibot",

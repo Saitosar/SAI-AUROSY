@@ -1,0 +1,50 @@
+{
+  "id": "default",
+  "name": "Pilot Mall",
+  "base_point": "node-standby",
+  "floors": [
+    {
+      "id": "floor-1",
+      "name": "Ground Floor",
+      "level": 0
+    }
+  ],
+  "nodes": [
+    {"id": "node-standby", "name": "Standby", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 0, "y": 0}, "type": "standby"},
+    {"id": "node-entrance", "name": "Entrance", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 0, "y": 10}, "type": "entrance"},
+    {"id": "node-info", "name": "Information Desk", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 5, "y": 5}, "type": "info_desk"},
+    {"id": "node-junction-a", "name": "Junction A", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 10, "y": 10}, "type": "junction"},
+    {"id": "node-nike", "name": "Nike", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 15, "y": 5}, "type": "store"},
+    {"id": "node-adidas", "name": "Adidas", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 20, "y": 5}, "type": "store"},
+    {"id": "node-junction-b", "name": "Junction B", "floor_id": "floor-1", "zone": "B", "coordinates": {"x": 10, "y": 15}, "type": "junction"},
+    {"id": "node-apple", "name": "Apple Store", "floor_id": "floor-1", "zone": "B", "coordinates": {"x": 15, "y": 20}, "type": "store"},
+    {"id": "node-junction-c", "name": "Junction C", "floor_id": "floor-1", "zone": "C", "coordinates": {"x": 5, "y": 15}, "type": "junction"},
+    {"id": "node-foodcourt", "name": "Food Court", "floor_id": "floor-1", "zone": "C", "coordinates": {"x": 5, "y": 20}, "type": "store"},
+    {"id": "node-elevator", "name": "Elevator", "floor_id": "floor-1", "zone": "B", "coordinates": {"x": 12, "y": 12}, "type": "elevator"},
+    {"id": "node-escalator", "name": "Escalator", "floor_id": "floor-1", "zone": "A", "coordinates": {"x": 8, "y": 12}, "type": "escalator"}
+  ],
+  "edges": [
+    {"from": "node-standby", "to": "node-info", "distance": 7.1, "bidirectional": true},
+    {"from": "node-standby", "to": "node-entrance", "distance": 10, "bidirectional": true},
+    {"from": "node-entrance", "to": "node-info", "distance": 7.1, "bidirectional": true},
+    {"from": "node-info", "to": "node-junction-a", "distance": 7.1, "bidirectional": true},
+    {"from": "node-info", "to": "node-junction-c", "distance": 10, "bidirectional": true},
+    {"from": "node-entrance", "to": "node-escalator", "distance": 8.2, "bidirectional": true},
+    {"from": "node-escalator", "to": "node-junction-a", "distance": 2.8, "bidirectional": true},
+    {"from": "node-escalator", "to": "node-junction-b", "distance": 3.6, "bidirectional": true},
+    {"from": "node-junction-a", "to": "node-nike", "distance": 7.1, "bidirectional": true},
+    {"from": "node-nike", "to": "node-adidas", "distance": 5, "bidirectional": true},
+    {"from": "node-junction-a", "to": "node-elevator", "distance": 2.8, "bidirectional": true},
+    {"from": "node-elevator", "to": "node-junction-b", "distance": 3.6, "bidirectional": true},
+    {"from": "node-junction-b", "to": "node-apple", "distance": 7.1, "bidirectional": true},
+    {"from": "node-junction-b", "to": "node-junction-c", "distance": 5, "bidirectional": true},
+    {"from": "node-junction-c", "to": "node-foodcourt", "distance": 5, "bidirectional": true}
+  ],
+  "stores": [
+    {"store_name": "Nike", "floor_id": "floor-1", "zone": "A", "node_id": "node-nike"},
+    {"store_name": "Adidas", "floor_id": "floor-1", "zone": "A", "node_id": "node-adidas"},
+    {"store_name": "Apple Store", "floor_id": "floor-1", "zone": "B", "node_id": "node-apple"},
+    {"store_name": "Food Court", "floor_id": "floor-1", "zone": "C", "node_id": "node-foodcourt"},
+    {"store_name": "Electronics Zone", "floor_id": "floor-1", "zone": "B", "node_id": "node-apple"}
+  ]
+}

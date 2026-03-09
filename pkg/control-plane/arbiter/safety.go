@@ -23,6 +23,8 @@ func SafetyAllow(cmd *hal.Command) bool {
 		return true
 	case "cmd_vel":
 		return validateCmdVelPayload(cmd.Payload)
+	case "navigate_to":
+		return validateNavigateToPayload(cmd.Payload)
 	default:
 		return false
 	}
@@ -50,4 +52,18 @@ func validateCmdVelPayload(payload json.RawMessage) bool {
 		return false
 	}
 	return true
+}
+
+func validateNavigateToPayload(payload json.RawMessage) bool {
+	if len(payload) == 0 {
+		return false
+	}
+	var p struct {
+		TargetCoordinates string `json:"target_coordinates"`
+		StoreName         string `json:"store_name"`
+	}
+	if err := json.Unmarshal(payload, &p); err != nil {
+		return false
+	}
+	return p.TargetCoordinates != ""
 }
