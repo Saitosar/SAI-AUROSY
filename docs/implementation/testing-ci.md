@@ -2,6 +2,14 @@
 
 This document describes the testing strategy, how to run tests, and the CI pipeline for SAI AUROSY.
 
+## Prerequisites
+
+- **Go 1.24+** — Required for unit tests, integration tests, and local builds. The project `go.mod` specifies `go 1.24`.
+- **NATS** — Required for integration tests (Task Runner, Edge Agent). Start locally or use Docker; tests skip if unavailable.
+- **Docker** — Required for E2E tests and building services.
+
+CI and Docker images use Go 1.24. Ensure your local Go version is 1.24 or higher: `go version`.
+
 ## Test Types
 
 ### Unit Tests
