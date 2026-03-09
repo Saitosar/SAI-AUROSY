@@ -44,6 +44,25 @@ func TestMemoryStore_List(t *testing.T) {
 	}
 }
 
+func TestMemoryStore_ListByTenant(t *testing.T) {
+	s := NewMemoryStore()
+	s.Add(&hal.Robot{ID: "r1", Vendor: "a", Model: "m", AdapterEndpoint: "e", TenantID: "t1", CreatedAt: time.Now(), UpdatedAt: time.Now()})
+	s.Add(&hal.Robot{ID: "r2", Vendor: "b", Model: "m", AdapterEndpoint: "e", TenantID: "t1", CreatedAt: time.Now(), UpdatedAt: time.Now()})
+	s.Add(&hal.Robot{ID: "r3", Vendor: "c", Model: "m", AdapterEndpoint: "e", TenantID: "t2", CreatedAt: time.Now(), UpdatedAt: time.Now()})
+	if got := s.ListByTenant(""); len(got) != 3 {
+		t.Errorf("ListByTenant(''): expected 3, got %d", len(got))
+	}
+	if got := s.ListByTenant("t1"); len(got) != 2 {
+		t.Errorf("ListByTenant('t1'): expected 2, got %d", len(got))
+	}
+	if got := s.ListByTenant("t2"); len(got) != 1 {
+		t.Errorf("ListByTenant('t2'): expected 1, got %d", len(got))
+	}
+	if got := s.ListByTenant("t3"); len(got) != 0 {
+		t.Errorf("ListByTenant('t3'): expected 0, got %d", len(got))
+	}
+}
+
 func TestMemoryStore_Delete(t *testing.T) {
 	s := NewMemoryStore()
 	s.Add(&hal.Robot{ID: "r1", Vendor: "a", Model: "m", AdapterEndpoint: "e", TenantID: "t", CreatedAt: time.Now(), UpdatedAt: time.Now()})

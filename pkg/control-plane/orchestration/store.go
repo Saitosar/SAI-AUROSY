@@ -11,6 +11,7 @@ type RunStore interface {
 	Get(id string) (*WorkflowRun, error)
 	List() ([]WorkflowRun, error)
 	UpdateStatus(id string, status WorkflowRunStatus) error
+	UpdateTenantID(runID, tenantID string) error
 	AddTask(runID, taskID string, stepIndex int) error
 }
 
@@ -74,6 +75,17 @@ func (s *MemoryRunStore) UpdateStatus(id string, status WorkflowRunStatus) error
 	defer s.mu.Unlock()
 	if r, ok := s.runs[id]; ok {
 		r.Status = status
+		r.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
+// UpdateTenantID sets the tenant ID for a workflow run.
+func (s *MemoryRunStore) UpdateTenantID(runID, tenantID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if r, ok := s.runs[runID]; ok {
+		r.TenantID = tenantID
 		r.UpdatedAt = time.Now()
 	}
 	return nil

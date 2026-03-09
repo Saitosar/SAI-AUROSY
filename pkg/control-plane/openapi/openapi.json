@@ -7,8 +7,16 @@
   },
   "servers": [{"url": "/api/v1", "description": "API v1"}],
   "paths": {
+    "/me": {
+      "get": {
+        "summary": "Current user info",
+        "description": "Returns roles and tenant_id from JWT/API key. Used by Operator Console for read-only mode.",
+        "tags": ["auth"],
+        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"type": "object", "properties": {"roles": {"type": "array", "items": {"type": "string"}}, "tenant_id": {"type": "string"}}}}}}}
+      }
+    },
     "/robots": {
-      "get": {"summary": "List robots", "tags": ["robots"]},
+      "get": {"summary": "List robots. Query: tenant_id", "tags": ["robots"]},
       "post": {"summary": "Create robot", "tags": ["robots"]}
     },
     "/robots/{id}": {
@@ -17,23 +25,69 @@
       "delete": {"summary": "Delete robot", "tags": ["robots"]}
     },
     "/robots/{id}/command": {
-      "post": {"summary": "Send command to robot", "tags": ["robots"]}
+      "post": {
+        "summary": "Send command to robot",
+        "description": "Operator: robot must belong to tenant (404 if not). Optional Idempotency-Key header prevents duplicate commands on retry.",
+        "tags": ["robots"],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Optional. UUID or opaque string. When provided, duplicate requests with the same key within 24h return the cached 202 response without re-sending the command.",
+            "schema": {"type": "string"}
+          }
+        ]
+      }
     },
     "/telemetry/stream": {
-      "get": {"summary": "SSE telemetry stream", "tags": ["telemetry"]}
+      "get": {
+        "summary": "SSE telemetry stream",
+        "description": "Operator: filtered by tenant robots. Query: robot_id, robot_ids, tenant_id. Reconnect: Last-Event-ID header. Backpressure: drops oldest when slow.",
+        "tags": ["telemetry"]
+      }
+    },
+    "/events/stream": {
+      "get": {
+        "summary": "SSE events stream",
+        "description": "Platform events: robot_online, task_completed, safe_stop. Each event: event: <type>, data: { event, timestamp, data }.",
+        "tags": ["events"]
+      }
+    },
+    "/cognitive/navigate": {
+      "post": {"summary": "Path planning (navigation)", "tags": ["cognitive"]}
+    },
+    "/cognitive/recognize": {
+      "post": {"summary": "Object/person recognition", "tags": ["cognitive"]}
+    },
+    "/cognitive/plan": {
+      "post": {"summary": "Task planning", "tags": ["cognitive"]}
     },
     "/scenarios": {
-      "get": {"summary": "List scenarios", "tags": ["tasks"]}
+      "get": {"summary": "List scenarios", "tags": ["scenarios"]},
+      "post": {"summary": "Create scenario (admin)", "tags": ["scenarios"]}
+    },
+    "/scenarios/{id}": {
+      "get": {"summary": "Get scenario by ID", "tags": ["scenarios"]},
+      "put": {"summary": "Update scenario (admin)", "tags": ["scenarios"]},
+      "delete": {"summary": "Delete scenario (admin)", "tags": ["scenarios"]}
     },
     "/tasks": {
-      "get": {"summary": "List tasks", "tags": ["tasks"]},
-      "post": {"summary": "Create task", "tags": ["tasks"]}
+      "get": {"summary": "List tasks. Query: tenant_id, robot_id, status", "tags": ["tasks"]},
+      "post": {
+        "summary": "Create task",
+        "description": "Operator: robot_id must belong to tenant (403 if not).",
+        "tags": ["tasks"]
+      }
     },
     "/tasks/{id}": {
       "get": {"summary": "Get task", "tags": ["tasks"]}
     },
     "/tasks/{id}/cancel": {
-      "post": {"summary": "Cancel task", "tags": ["tasks"]}
+      "post": {
+        "summary": "Cancel task",
+        "description": "Operator: task must belong to tenant (404 if not).",
+        "tags": ["tasks"]
+      }
     },
     "/zones": {
       "get": {"summary": "List zones", "tags": ["zones"]}
@@ -45,31 +99,127 @@
       "get": {"summary": "List workflows", "tags": ["workflows"]}
     },
     "/workflows/{id}/run": {
-      "post": {"summary": "Run workflow", "tags": ["workflows"]}
+      "post": {
+        "summary": "Run workflow",
+        "description": "Operator: only tenant robots are selected.",
+        "tags": ["workflows"]
+      }
     },
     "/workflow-runs": {
-      "get": {"summary": "List workflow runs", "tags": ["workflows"]}
+      "get": {
+        "summary": "List workflow runs",
+        "description": "Operator: filtered by tenant.",
+        "tags": ["workflows"]
+      }
     },
     "/workflow-runs/{id}": {
-      "get": {"summary": "Get workflow run", "tags": ["workflows"]}
+      "get": {
+        "summary": "Get workflow run",
+        "description": "Operator: run must belong to tenant (404 if not).",
+        "tags": ["workflows"]
+      }
+    },
+    "/tenants": {
+      "get": {"summary": "List tenants", "tags": ["tenants"]},
+      "post": {"summary": "Create tenant (admin)", "tags": ["tenants"]}
+    },
+    "/tenants/{id}": {
+      "get": {"summary": "Get tenant", "tags": ["tenants"]},
+      "put": {"summary": "Update tenant (admin)", "tags": ["tenants"]},
+      "delete": {"summary": "Delete tenant (admin)", "tags": ["tenants"]}
+    },
+    "/tenants/{id}/robots": {
+      "get": {"summary": "List robots for tenant", "tags": ["tenants"]}
+    },
+    "/api-keys": {
+      "get": {
+        "summary": "List API keys",
+        "description": "Admin: all keys. Operator: keys for own tenant only.",
+        "tags": ["api-keys"]
+      },
+      "post": {
+        "summary": "Create API key",
+        "description": "Returns raw key once. Admin: any tenant. Operator: own tenant only.",
+        "tags": ["api-keys"]
+      }
+    },
+    "/api-keys/{id}": {
+      "delete": {
+        "summary": "Revoke API key",
+        "description": "Admin: any key. Operator: only keys in own tenant.",
+        "tags": ["api-keys"]
+      }
+    },
+    "/marketplace/categories": {
+      "get": {"summary": "List scenario categories", "tags": ["marketplace"]}
+    },
+    "/marketplace/scenarios": {
+      "get": {
+        "summary": "List published scenarios",
+        "description": "Query: category, search, sort (rating|newest)",
+        "tags": ["marketplace"]
+      }
+    },
+    "/marketplace/scenarios/{id}": {
+      "get": {
+        "summary": "Get scenario with rating",
+        "tags": ["marketplace"]
+      }
+    },
+    "/marketplace/scenarios/{id}/rate": {
+      "post": {
+        "summary": "Rate scenario (1-5)",
+        "description": "Body: {\"rating\": 1-5}. One rating per tenant per scenario.",
+        "tags": ["marketplace"]
+      }
     },
     "/audit": {
-      "get": {"summary": "List audit log", "tags": ["audit"]}
+      "get": {"summary": "List audit log. Query: tenant_id, robot_id, actor, action", "tags": ["audit"]}
     },
     "/webhooks": {
       "get": {"summary": "List webhooks", "tags": ["webhooks"]},
-      "post": {"summary": "Create webhook", "tags": ["webhooks"]}
+      "post": {
+        "summary": "Create webhook",
+        "description": "Events: robot_online, task_completed, safe_stop, task_started, zone_acquired, zone_released",
+        "tags": ["webhooks"]
+      }
     },
     "/webhooks/{id}": {
       "get": {"summary": "Get webhook", "tags": ["webhooks"]},
-      "put": {"summary": "Update webhook", "tags": ["webhooks"]},
+      "put": {
+        "summary": "Update webhook",
+        "description": "Events: robot_online, task_completed, safe_stop, task_started, zone_acquired, zone_released",
+        "tags": ["webhooks"]
+      },
       "delete": {"summary": "Delete webhook", "tags": ["webhooks"]}
     },
     "/analytics/robots": {
-      "get": {"summary": "List robot analytics summaries", "tags": ["analytics"]}
+      "get": {
+        "summary": "List robot analytics summaries",
+        "description": "Operator: filtered by tenant.",
+        "tags": ["analytics"]
+      }
     },
     "/analytics/robots/{id}/summary": {
-      "get": {"summary": "Get robot analytics summary", "tags": ["analytics"]}
+      "get": {
+        "summary": "Get robot analytics summary",
+        "description": "Operator: robot must belong to tenant (404 if not).",
+        "tags": ["analytics"]
+      }
+    },
+    "/edges": {
+      "get": {
+        "summary": "List edges",
+        "description": "Operator: filtered by tenant (edges serving tenant robots).",
+        "tags": ["edges"]
+      }
+    },
+    "/edges/{id}": {
+      "get": {
+        "summary": "Get edge",
+        "description": "Operator: edge must serve tenant robot (404 if not).",
+        "tags": ["edges"]
+      }
     }
   }
 }

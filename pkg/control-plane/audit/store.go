@@ -19,13 +19,14 @@ type Entry struct {
 
 // ListFilters filters audit log entries.
 type ListFilters struct {
-	RobotID   string
-	Actor     string
-	Action    string
-	From      *time.Time
-	To        *time.Time
-	Limit     int
-	Offset    int
+	RobotID  string
+	TenantID string
+	Actor    string
+	Action   string
+	From     *time.Time
+	To       *time.Time
+	Limit    int
+	Offset   int
 }
 
 // Store is the interface for audit log persistence.

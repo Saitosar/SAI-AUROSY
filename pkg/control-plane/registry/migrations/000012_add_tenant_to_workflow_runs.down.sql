@@ -1,0 +1,2 @@
+-- PostgreSQL: ALTER TABLE workflow_runs DROP COLUMN tenant_id;
+-- SQLite does not support DROP COLUMN; migration is no-op for SQLite.

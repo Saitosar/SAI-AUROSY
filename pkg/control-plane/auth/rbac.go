@@ -2,24 +2,30 @@ package auth
 
 import (
 	"net/http"
+	"os"
 	"strings"
 )
 
 // Role constants.
 const (
-	RoleOperator     = "operator"
+	RoleOperator      = "operator"
 	RoleAdministrator = "administrator"
-	RoleSystem       = "system"
+	RoleViewer        = "viewer"
+	RoleSystem        = "system"
 )
 
 // RequireRole returns a middleware that checks the user has one of the required roles.
-// If no claims in context (auth not configured), the check is skipped.
+// When claims is nil: if ALLOW_UNSAFE_NO_AUTH=true (dev only), passes through; otherwise returns 401.
 func RequireRole(roles ...string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims := GetClaims(r.Context())
 			if claims == nil {
-				next.ServeHTTP(w, r)
+				if os.Getenv("ALLOW_UNSAFE_NO_AUTH") == "true" {
+					next.ServeHTTP(w, r)
+					return
+				}
+				http.Error(w, "missing authorization", http.StatusUnauthorized)
 				return
 			}
 			userRoles := claims.GetRoles()

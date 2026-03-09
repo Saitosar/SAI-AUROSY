@@ -3,7 +3,7 @@ package arbiter
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/sai-aurosy/platform/pkg/control-plane/audit"
@@ -38,21 +38,21 @@ func (a *Arbiter) Run(ctx context.Context) error {
 func (a *Arbiter) handleCommand(cmd *hal.Command) {
 	robot := a.registry.Get(cmd.RobotID)
 	if robot == nil {
-		log.Printf("[arbiter] robot %s not in registry, rejecting", cmd.RobotID)
+		slog.Warn("arbiter robot not in registry", "robot_id", cmd.RobotID)
 		a.audit(cmd, false)
 		return
 	}
 	if !SafetyAllow(cmd) {
-		log.Printf("[arbiter] safety rejected command %s for %s", cmd.Command, cmd.RobotID)
+		slog.Warn("arbiter safety rejected command", "command", cmd.Command, "robot_id", cmd.RobotID)
 		a.audit(cmd, false)
 		return
 	}
 	if err := a.bus.PublishCommand(cmd); err != nil {
-		log.Printf("[arbiter] failed to publish command: %v", err)
+		slog.Error("arbiter failed to publish command", "error", err)
 		a.audit(cmd, false)
 		return
 	}
-	log.Printf("[arbiter] routed %s -> %s", cmd.Command, cmd.RobotID)
+	slog.Info("arbiter routed command", "command", cmd.Command, "robot_id", cmd.RobotID)
 	a.audit(cmd, true)
 }
 

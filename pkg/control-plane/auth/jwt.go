@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/sai-aurosy/platform/pkg/secrets"
 )
 
 var errInvalidClaims = errors.New("invalid claims")
@@ -19,10 +20,13 @@ const (
 )
 
 // Claims holds JWT claims for authorization.
+// TenantID is populated from the "tenant_id" claim in the JWT payload when present,
+// restricting the operator's scope to that tenant.
 type Claims struct {
 	jwt.RegisteredClaims
-	Roles []string `json:"roles,omitempty"`
-	Role  string   `json:"role,omitempty"`
+	Roles    []string `json:"roles,omitempty"`
+	Role     string   `json:"role,omitempty"`
+	TenantID string   `json:"tenant_id,omitempty"`
 }
 
 // GetRoles returns roles from claims (supports both "roles" array and "role" string).
@@ -42,28 +46,66 @@ func Middleware(next http.Handler) http.Handler {
 	return MiddlewareWithAPIKeys(next, nil)
 }
 
+// OAuthTokenValidator validates OAuth access tokens.
+type OAuthTokenValidator interface {
+	ValidateAccessToken(ctx context.Context, accessToken string) (*Claims, error)
+}
+
 // MiddlewareWithAPIKeys returns a middleware that validates JWT or API key.
 func MiddlewareWithAPIKeys(next http.Handler, apiKeyStore APIKeyStore) http.Handler {
-	secret := os.Getenv("JWT_SECRET")
-	publicKeyPEM := os.Getenv("JWT_PUBLIC_KEY")
-	issuer := os.Getenv("JWT_ISSUER")
-	audience := os.Getenv("JWT_AUDIENCE")
+	return MiddlewareWithAPIKeysAndOAuth(next, apiKeyStore, nil)
+}
 
-	if secret == "" && publicKeyPEM == "" && apiKeyStore == nil {
-		return next
+// AuthConfigured returns true if any auth mechanism is configured.
+func AuthConfigured(apiKeyStore APIKeyStore, oauthValidator OAuthTokenValidator) bool {
+	ctx := context.Background()
+	p := secrets.Default(ctx)
+	return secrets.GetSecretOrEnv(ctx, p, "JWT_SECRET") != "" ||
+		secrets.GetSecretOrEnv(ctx, p, "JWT_PUBLIC_KEY") != "" ||
+		apiKeyStore != nil ||
+		oauthValidator != nil
+}
+
+// MiddlewareWithAPIKeysAndOAuth returns a middleware that validates JWT, API key, or OAuth token.
+// When no auth is configured: if ALLOW_UNSAFE_NO_AUTH=true, passes through; otherwise returns 401.
+func MiddlewareWithAPIKeysAndOAuth(next http.Handler, apiKeyStore APIKeyStore, oauthValidator OAuthTokenValidator) http.Handler {
+	ctx := context.Background()
+	p := secrets.Default(ctx)
+	secret := secrets.GetSecretOrEnv(ctx, p, "JWT_SECRET")
+	publicKeyPEM := secrets.GetSecretOrEnv(ctx, p, "JWT_PUBLIC_KEY")
+	issuer := secrets.GetSecretOrEnv(ctx, p, "JWT_ISSUER")
+	audience := secrets.GetSecretOrEnv(ctx, p, "JWT_AUDIENCE")
+	allowUnsafeNoAuth := os.Getenv("ALLOW_UNSAFE_NO_AUTH") == "true"
+
+	authConfigured := secret != "" || publicKeyPEM != "" || apiKeyStore != nil || oauthValidator != nil
+	if !authConfigured {
+		if allowUnsafeNoAuth {
+			return next
+		}
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "missing authorization", http.StatusUnauthorized)
+		})
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
 		apiKey := r.Header.Get("X-API-Key")
+		if apiKey == "" && r.Method == "GET" {
+			apiKey = r.URL.Query().Get("api_key")
+		}
 
 		var claims *Claims
 
 		if strings.HasPrefix(auth, "Bearer ") {
 			tokenStr := strings.TrimPrefix(auth, "Bearer ")
 			var err error
-			claims, err = parseJWT(tokenStr, secret, publicKeyPEM, issuer, audience)
-			if err != nil {
+			if secret != "" || publicKeyPEM != "" {
+				claims, err = parseJWT(tokenStr, secret, publicKeyPEM, issuer, audience)
+			}
+			if (err != nil || claims == nil) && oauthValidator != nil {
+				claims, err = oauthValidator.ValidateAccessToken(r.Context(), tokenStr)
+			}
+			if err != nil || claims == nil {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return
 			}
@@ -140,5 +182,8 @@ func GetClaims(ctx context.Context) *Claims {
 
 // Enabled returns true if JWT auth is configured.
 func Enabled() bool {
-	return os.Getenv("JWT_SECRET") != "" || os.Getenv("JWT_PUBLIC_KEY") != ""
+	ctx := context.Background()
+	p := secrets.Default(ctx)
+	return secrets.GetSecretOrEnv(ctx, p, "JWT_SECRET") != "" ||
+		secrets.GetSecretOrEnv(ctx, p, "JWT_PUBLIC_KEY") != ""
 }

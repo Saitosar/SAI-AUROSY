@@ -1,9 +1,12 @@
 package edge
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sai-aurosy/platform/pkg/secrets"
 )
 
 // Config holds edge agent configuration.
@@ -13,6 +16,7 @@ type Config struct {
 	CloudURL  string   // Cloud Control Plane API base URL (e.g. https://api.example.com)
 	RobotIDs  []string // Robot IDs managed by this edge (for heartbeat)
 	Heartbeat int      // Heartbeat interval in seconds
+	APIKey    string   // API key for Control Plane auth (EDGE_API_KEY); required when auth is enabled
 }
 
 // LoadConfig loads configuration from environment.
@@ -30,12 +34,15 @@ func LoadConfig() *Config {
 			heartbeat = n
 		}
 	}
+	ctx := context.Background()
+	p := secrets.Default(ctx)
 	return &Config{
 		EdgeID:    getEnv("EDGE_ID", "edge-001"),
 		NATSURL:   getEnv("NATS_URL", "nats://localhost:4222"),
 		CloudURL:  getEnv("CLOUD_URL", "http://localhost:8080"),
 		RobotIDs:  trimmed,
 		Heartbeat: heartbeat,
+		APIKey:    secrets.GetSecretOrEnv(ctx, p, "EDGE_API_KEY"),
 	}
 }
 

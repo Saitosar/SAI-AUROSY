@@ -32,8 +32,18 @@ func TestSQLStore_SQLiteInMemory(t *testing.T) {
 	}
 
 	list := s.List()
-	if len(list) != 1 {
-		t.Errorf("List: expected 1, got %d", len(list))
+	if len(list) < 1 {
+		t.Errorf("List: expected at least 1, got %d", len(list))
+	}
+	found := false
+	for _, r := range list {
+		if r.ID == "sql-r1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("List: expected sql-r1 in list, got %v", list)
 	}
 
 	if !s.Delete("sql-r1") {

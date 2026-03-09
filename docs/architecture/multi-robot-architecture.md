@@ -72,6 +72,12 @@ The platform exposes a unified model for:
 
 ---
 
+# Multi-Tenant
+
+Роботы привязаны к tenant. Операторы видят только роботов своего tenant. Команды, задачи, телеметрия и analytics фильтруются по tenant. См. [Phase 2.6 Multi-Tenant](../implementation/phase-2.6-multi-tenant.md).
+
+---
+
 # High-Level Architecture
 
 ```mermaid

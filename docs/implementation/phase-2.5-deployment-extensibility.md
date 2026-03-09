@@ -63,6 +63,10 @@ curl -X PUT http://localhost:8080/v1/robots/x1-001 \
 CLOUD_URL=http://host.docker.internal:8080 docker compose -f docker-compose.edge.yml up -d
 ```
 
+## Миграции
+
+- `000009_add_edge_support` — колонка edge_id в robots, таблицы edges, edge_commands
+
 ## Ссылки
 
 - [Deployment Model](../architecture/deployment-model.md)

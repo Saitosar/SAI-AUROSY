@@ -41,6 +41,18 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 **Phase 2.5** — Deployment и расширяемость: Edge Agent, Cloud edges API, ROS adapter, Adapter SDK. See [Phase 2.5 Deployment Extensibility](docs/implementation/phase-2.5-deployment-extensibility.md).
 
+**Phase 2.9** — Security: Mandatory JWT/API key auth for all endpoints, strict tenant isolation (robots, tasks, audit, scenarios), edge heartbeat auth, secrets management (Vault/AWS), audit for API keys/OAuth/tenants. See [Phase 2.9 Security](docs/implementation/phase-2.9-security.md) and [Secrets Management](docs/implementation/secrets-management.md).
+
+**Phase 2.10** — Scenario Builder MVP: structured step list, capability multi-select, validation. See [Phase 2.10 Scenario Builder MVP](docs/implementation/phase-2.10-scenario-builder-mvp.md).
+
+**Phase 3.1** — Streaming Gateway: SSE extensions (robot_id filter, Last-Event-ID reconnect, backpressure). See [Phase 3.1 Streaming Gateway](docs/implementation/phase-3.1-streaming-gateway.md).
+
+**Phase 3.2** — Cognitive Gateway: AI services (navigation, recognition, planning), mock provider, API /v1/cognitive/*. See [Phase 3.2 Cognitive Gateway](docs/implementation/phase-3.2-cognitive-gateway.md).
+
+**Phase 3.3** — Developer Platform: API keys self-service, sandbox tenant, Swagger UI at /api/docs. See [Phase 3.3 Developer Platform](docs/implementation/phase-3.3-developer-platform.md).
+
+**Phase 3.4** — Robot Application Marketplace: catalog of scenarios, categories, ratings, Operator Console section. See [Phase 3.4 Marketplace](docs/implementation/phase-3.4-marketplace.md).
+
 ---
 
 # Documentation
@@ -59,6 +71,13 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 - [Platform architecture](docs/architecture/platform-architecture.md)
 - [MVP V1 architecture](docs/architecture/mvp-v1-architecture.md)
+- [Control Plane and Workforce split](docs/architecture/control-plane-workforce-split.md)
+
+## Integration
+
+- [Integration Guide](docs/integration/README.md) — API overview, base URL, authentication
+- [API Reference](docs/integration/api-reference.md) — Endpoint overview and OpenAPI link
+- [API Versioning and Deprecation Policy](docs/integration/api-versioning.md) — When /v2 is introduced, deprecation lifecycle
 
 ## Implementation
 
@@ -69,9 +88,36 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 - [Phase 2.3 Multi-Robot](docs/implementation/phase-2.3-multi-robot.md)
 - [Phase 2.4 Enterprise Analytics](docs/implementation/phase-2.4-enterprise-analytics.md)
 - [Phase 2.5 Deployment Extensibility](docs/implementation/phase-2.5-deployment-extensibility.md)
+- [Phase 3.1 Streaming Gateway](docs/implementation/phase-3.1-streaming-gateway.md)
+- [Phase 3.2 Cognitive Gateway](docs/implementation/phase-3.2-cognitive-gateway.md)
+- [Phase 3.3 Developer Platform](docs/implementation/phase-3.3-developer-platform.md)
+- [Phase 3.4 Marketplace](docs/implementation/phase-3.4-marketplace.md)
+- [Phase 2.8 Priority 5 Improvements](docs/implementation/phase-2.8-priority5-improvements.md)
+- [Telemetry retention](docs/implementation/telemetry-retention.md)
+- [Phase 2.9 Operator Console UX](docs/implementation/phase-2.9-operator-console-ux.md)
+- [Phase 2.9 Security](docs/implementation/phase-2.9-security.md)
+- [Secrets Management](docs/implementation/secrets-management.md)
+- [Phase 2.10 Scenario Builder MVP](docs/implementation/phase-2.10-scenario-builder-mvp.md)
+- [Testing and CI](docs/implementation/testing-ci.md)
+- [Observability](docs/implementation/observability.md) — OpenTelemetry, structured logging, log-trace correlation
 - [Multi-robot architecture](docs/architecture/multi-robot-architecture.md)
 - [Adapter layer](docs/architecture/adapter-layer.md)
 - [Deployment model (edge/cloud)](docs/architecture/deployment-model.md)
+
+---
+
+## Operations
+
+- [Production runbook](docs/operations/production-runbook.md) — deployment, monitoring, alerts, recovery
+- [Operator runbook](docs/operations/operator-runbook.md) — tenant onboarding, workflow creation, troubleshooting
+
+---
+
+## Adapters
+
+- [Adapter development guide](docs/adapters/adapter-development-guide.md) — step-by-step guide with template
+- [RobotAdapter contract](docs/adapters/robot-adapter-contract.md) — NATS topics, JSON formats
+- [Adapter template](pkg/adapters/template/README.md) — minimal example
 
 ---
 

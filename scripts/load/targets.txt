@@ -1,0 +1,2 @@
+GET http://localhost:8080/v1/robots
+X-API-Key: e2e-api-key

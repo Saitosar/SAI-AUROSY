@@ -47,3 +47,8 @@ func (c *Catalog) List() []Workflow {
 	}
 	return out
 }
+
+// Register adds or overwrites a workflow (for testing or dynamic registration).
+func (c *Catalog) Register(w Workflow) {
+	c.workflows[w.ID] = w
+}

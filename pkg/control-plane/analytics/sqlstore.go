@@ -70,17 +70,31 @@ func (s *SQLStore) WriteTelemetry(ctx context.Context, t *hal.Telemetry) error {
 func (s *SQLStore) RobotSummary(ctx context.Context, robotID string, from, to time.Time) (*RobotSummary, error) {
 	sum := &RobotSummary{RobotID: robotID}
 
-	// Uptime: approximate from telemetry samples (count of online samples * avg interval, or sum of online intervals)
-	// Simplified: count online samples in range, assume ~1 sample per second for uptime estimate
-	var onlineCount int
+	// Uptime and errors: from telemetry_samples or telemetry_aggregates (for old data beyond retention)
+	var onlineCount, errCount int
 	err := s.db.QueryRowContext(ctx,
 		s.ph("SELECT COUNT(*) FROM telemetry_samples WHERE robot_id = ? AND timestamp >= ? AND timestamp <= ? AND online = 1"),
 		robotID, from, to).Scan(&onlineCount)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-	// Rough estimate: if we have N online samples and typical 1-2 sec interval, uptime ~ N * 1.5 sec
+	err = s.db.QueryRowContext(ctx,
+		s.ph("SELECT COUNT(*) FROM telemetry_samples WHERE robot_id = ? AND timestamp >= ? AND timestamp <= ? AND actuator_status = 'error'"),
+		robotID, from, to).Scan(&errCount)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	// Fallback to aggregates when range has no raw samples (data was downsampled)
+	if onlineCount == 0 && errCount == 0 {
+		var aggOnline, aggErr int64
+		_ = s.db.QueryRowContext(ctx,
+			s.ph("SELECT COALESCE(SUM(online_count), 0), COALESCE(SUM(error_count), 0) FROM telemetry_aggregates WHERE robot_id = ? AND bucket_start >= ? AND bucket_start <= ? AND bucket_type = 'hour'"),
+			robotID, from, to).Scan(&aggOnline, &aggErr)
+		onlineCount = int(aggOnline)
+		errCount = int(aggErr)
+	}
 	sum.UptimeSec = float64(onlineCount) * 1.5
+	sum.ErrorsCount = errCount
 
 	// Commands: from audit_log
 	var cmdCount int
@@ -91,16 +105,6 @@ func (s *SQLStore) RobotSummary(ctx context.Context, robotID string, from, to ti
 		return nil, err
 	}
 	sum.CommandsCount = cmdCount
-
-	// Errors: actuator_status = 'error' in telemetry
-	var errCount int
-	err = s.db.QueryRowContext(ctx,
-		s.ph("SELECT COUNT(*) FROM telemetry_samples WHERE robot_id = ? AND timestamp >= ? AND timestamp <= ? AND actuator_status = 'error'"),
-		robotID, from, to).Scan(&errCount)
-	if err != nil && err != sql.ErrNoRows {
-		return nil, err
-	}
-	sum.ErrorsCount = errCount
 
 	// Tasks completed/failed: from tasks table
 	err = s.db.QueryRowContext(ctx,

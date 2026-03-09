@@ -49,12 +49,16 @@ func (s *SQLStore) Create(t *Task) error {
 	if len(t.Payload) > 0 {
 		payload = string(t.Payload)
 	}
+	tenantID := t.TenantID
+	if tenantID == "" {
+		tenantID = "default"
+	}
 	var completedAt interface{}
 	if t.CompletedAt != nil {
 		completedAt = t.CompletedAt
 	}
-	_, err := s.db.Exec(s.ph("INSERT INTO tasks (id, robot_id, type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"),
-		t.ID, t.RobotID, t.Type, nullIfEmpty(t.ScenarioID), payload, string(t.Status), t.CreatedAt, t.UpdatedAt, completedAt, nullIfEmpty(t.OperatorID))
+	_, err := s.db.Exec(s.ph("INSERT INTO tasks (id, robot_id, tenant_id, type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"),
+		t.ID, t.RobotID, tenantID, t.Type, nullIfEmpty(t.ScenarioID), payload, string(t.Status), t.CreatedAt, t.UpdatedAt, completedAt, nullIfEmpty(t.OperatorID))
 	return err
 }
 
@@ -64,9 +68,9 @@ func (s *SQLStore) Get(id string) (*Task, error) {
 	var payload []byte
 	var scenarioID, operatorID sql.NullString
 	var completedAt sql.NullTime
-	err := s.db.QueryRow(s.ph("SELECT id, robot_id, type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id FROM tasks WHERE id=?"),
+	err := s.db.QueryRow(s.ph("SELECT id, robot_id, COALESCE(tenant_id,'default'), type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id FROM tasks WHERE id=?"),
 		id,
-	).Scan(&t.ID, &t.RobotID, &t.Type, &scenarioID, &payload, &t.Status, &t.CreatedAt, &t.UpdatedAt, &completedAt, &operatorID)
+	).Scan(&t.ID, &t.RobotID, &t.TenantID, &t.Type, &scenarioID, &payload, &t.Status, &t.CreatedAt, &t.UpdatedAt, &completedAt, &operatorID)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -90,11 +94,15 @@ func (s *SQLStore) Get(id string) (*Task, error) {
 
 // List returns tasks matching filters.
 func (s *SQLStore) List(filters ListFilters) ([]Task, error) {
-	q := "SELECT id, robot_id, type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id FROM tasks WHERE 1=1"
+	q := "SELECT id, robot_id, COALESCE(tenant_id,'default'), type, scenario_id, payload, status, created_at, updated_at, completed_at, operator_id FROM tasks WHERE 1=1"
 	args := []interface{}{}
 	if filters.RobotID != "" {
 		q += " AND robot_id=?"
 		args = append(args, filters.RobotID)
+	}
+	if filters.TenantID != "" {
+		q += " AND tenant_id=?"
+		args = append(args, filters.TenantID)
 	}
 	if filters.Status != "" {
 		q += " AND status=?"
@@ -112,7 +120,7 @@ func (s *SQLStore) List(filters ListFilters) ([]Task, error) {
 		var payload []byte
 		var scenarioID, operatorID sql.NullString
 		var completedAt sql.NullTime
-		if err := rows.Scan(&t.ID, &t.RobotID, &t.Type, &scenarioID, &payload, &t.Status, &t.CreatedAt, &t.UpdatedAt, &completedAt, &operatorID); err != nil {
+		if err := rows.Scan(&t.ID, &t.RobotID, &t.TenantID, &t.Type, &scenarioID, &payload, &t.Status, &t.CreatedAt, &t.UpdatedAt, &completedAt, &operatorID); err != nil {
 			continue
 		}
 		if len(payload) > 0 {

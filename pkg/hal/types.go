@@ -12,7 +12,8 @@ type Robot struct {
 	Model            string    `json:"model"`
 	AdapterEndpoint  string    `json:"adapter_endpoint"`
 	TenantID         string    `json:"tenant_id"`
-	EdgeID           string    `json:"edge_id,omitempty"` // Optional: robot is managed by this edge node
+	EdgeID           string    `json:"edge_id,omitempty"`   // Optional: robot is managed by this edge node
+	Location         string    `json:"location,omitempty"` // Optional: for fleet grouping (e.g. "Warehouse A")
 	Capabilities     []string  `json:"capabilities"`      // walk, stand, safe_stop, cmd_vel, ...
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`

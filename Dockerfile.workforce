@@ -1,0 +1,11 @@
+FROM golang:1.24-alpine AS builder
+WORKDIR /app
+COPY go.mod ./
+COPY . .
+RUN go mod download && go mod tidy && CGO_ENABLED=0 go build -o /workforce ./cmd/workforce
+
+FROM alpine:3.19
+RUN apk add --no-cache wget
+COPY --from=builder /workforce /workforce
+EXPOSE 9090
+CMD ["/workforce"]
