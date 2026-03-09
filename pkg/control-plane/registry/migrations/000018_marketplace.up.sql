@@ -19,9 +19,9 @@ ALTER TABLE scenarios ADD COLUMN category_id TEXT;
 ALTER TABLE scenarios ADD COLUMN version TEXT DEFAULT '1.0';
 ALTER TABLE scenarios ADD COLUMN published_at TIMESTAMP;
 
--- Mark built-in scenarios as published
-UPDATE scenarios SET published_at = COALESCE(created_at, CURRENT_TIMESTAMP), author = 'platform', version = '1.0', category_id = 'mobility' WHERE id IN ('patrol', 'navigation');
-UPDATE scenarios SET published_at = COALESCE(created_at, CURRENT_TIMESTAMP), author = 'platform', version = '1.0', category_id = 'safety' WHERE id = 'standby';
+-- Mark built-in scenarios as published (created_at is TEXT; use CURRENT_TIMESTAMP for portable SQLite/PostgreSQL)
+UPDATE scenarios SET published_at = CURRENT_TIMESTAMP, author = 'platform', version = '1.0', category_id = 'mobility' WHERE id IN ('patrol', 'navigation');
+UPDATE scenarios SET published_at = CURRENT_TIMESTAMP, author = 'platform', version = '1.0', category_id = 'safety' WHERE id = 'standby';
 
 -- Scenario ratings (1-5 stars)
 CREATE TABLE IF NOT EXISTS scenario_ratings (
