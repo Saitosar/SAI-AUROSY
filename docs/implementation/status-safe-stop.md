@@ -4,7 +4,7 @@
 
 ## Компоненты
 
-- **Control Plane** — Fleet Registry, API, Command Arbiter, Safety Supervisor, SSE telemetry stream
+- **Control Plane** — Fleet Registry, API, Command Arbiter, Safety Supervisor, SSE telemetry stream (Phase 2.1: /v1/ API, health, metrics, persistence)
 - **NATS** — Event Broker / Telemetry Bus
 - **AGIBOT Adapter** — мост ROS2 ↔ NATS (или mock-режим)
 - **Operator Console** — React SPA, список роботов, real-time телеметрия, кнопка Safe Stop
@@ -73,7 +73,7 @@ npm run dev
 2. Убедиться, что робот `x1-001` в статусе Online (телеметрия от адаптера)
 3. Нажать **Safe Stop**
 4. Подтвердить в модальном окне
-5. Команда уходит: Console → API POST /robots/x1-001/command → NATS commands.robots.x1-001 → Adapter
+5. Команда уходит: Console → API POST /v1/robots/x1-001/command → NATS commands.robots.x1-001 → Adapter (legacy /robots/ с Deprecation header также поддерживается)
 6. В режиме ROS2: Adapter публикует в `/start_control` → X1 Infer переводит в idle
 
 ## AGIBOT X1 (реальный робот / симуляция)

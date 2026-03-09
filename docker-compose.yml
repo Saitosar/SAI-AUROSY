@@ -15,6 +15,10 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       CONTROL_PLANE_ADDR: ":8080"
+      # Phase 2.1 (опционально):
+      # REGISTRY_DB_DRIVER: sqlite
+      # REGISTRY_DB_DSN: file:/data/registry.db
+      # LOG_FORMAT: json
     depends_on:
       - nats
 
