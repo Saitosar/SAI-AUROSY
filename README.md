@@ -53,6 +53,10 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 **Mall Assistant Scenario** — First end-to-end interactive scenario: greet visitors, answer store-location questions, guide to stores, return to standby. See [Mall Assistant Scenario](docs/implementation/mall-assistant-scenario.md).
 
+**Simulated Robot Harness** — Virtual robot-in-the-loop runtime for end-to-end validation without physical hardware. Creates `sim-001` by default; supports failure injection and deterministic replay. Set `SIMROBOT_ENABLED=false` to disable. See [Simulated Robot Harness](docs/architecture/simulated-robot-harness.md).
+
+**Pilot Validation Pack** — Validation layer for the Mall Assistant pilot: happy path, failure scenarios, event/telemetry checks. Prerequisites: NATS running (e.g. `docker compose up -d`), working directory = project root. Commands: `go run ./cmd/validation` (all scenarios), `go run ./cmd/validation -scenario happy_path` (single scenario), `go run ./cmd/validation -output-contract outputs/validation/adapter_contract.json` (emit contract JSON), `go run ./cmd/validation -contract-check` (verify adapter contract after each scenario). See [Validation Layer](docs/architecture/validation-layer.md), [Adapter Readiness Contract](docs/contracts/adapter-readiness-contract.md), [Adapter Validation Checklist](docs/contracts/adapter-validation-checklist.md).
+
 **Phase 3.3** — Developer Platform: API keys self-service, sandbox tenant, Swagger UI at /api/docs. See [Phase 3.3 Developer Platform](docs/implementation/phase-3.3-developer-platform.md).
 
 **Phase 3.4** — Robot Application Marketplace: catalog of scenarios, categories, ratings, Operator Console section. See [Phase 3.4 Marketplace](docs/implementation/phase-3.4-marketplace.md).
@@ -108,6 +112,8 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 - [Observability](docs/implementation/observability.md) — OpenTelemetry, structured logging, log-trace correlation
 - [Multi-robot architecture](docs/architecture/multi-robot-architecture.md)
 - [Adapter layer](docs/architecture/adapter-layer.md)
+- [Validation layer](docs/architecture/validation-layer.md) — Pilot validation pack, scenario definitions, adapter contract
+- [Validation integration points](docs/implementation/validation-integration-points.md) — HAL, Execution Engine, SimRobot, Mall Assistant, Task Runner, Telemetry Bus
 - [Deployment model (edge/cloud)](docs/architecture/deployment-model.md)
 
 ---

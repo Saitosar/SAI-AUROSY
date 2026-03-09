@@ -35,6 +35,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics/retention"
 	"github.com/sai-aurosy/platform/internal/mall"
 	"github.com/sai-aurosy/platform/internal/robot"
+	"github.com/sai-aurosy/platform/internal/simrobot"
 	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
 	"github.com/sai-aurosy/platform/pkg/control-plane/mallassistant"
 	"github.com/sai-aurosy/platform/pkg/control-plane/marketplace"
@@ -255,6 +256,24 @@ func main() {
 		go taskRunner.Run(ctx)
 	}
 
+	// Simulated robot harness: create and start sim-001 when enabled
+	simRobotEnabled := os.Getenv("SIMROBOT_ENABLED") != "false"
+	var simRobotService *simrobot.SimRobotService
+	if simRobotEnabled && !workforceRemote {
+		simRobotService = simrobot.NewSimRobotService(bus, reg)
+		if _, err := simRobotService.CreateRobot(simrobot.CreateRobotOpts{
+			RobotID:   "sim-001",
+			TenantID:  "default",
+			RobotType: "simulated",
+		}); err != nil {
+			log.Printf("WARNING: simrobot create failed: %v", err)
+		} else if err := simRobotService.Start(ctx, "sim-001"); err != nil {
+			log.Printf("WARNING: simrobot start failed: %v", err)
+		} else {
+			log.Print("Simulated robot sim-001 started")
+		}
+	}
+
 	if !workforceRemote {
 		// Emit robot_online webhook when telemetry shows robot coming online
 		go runRobotOnlineWatcher(ctx, bus, webhookDispatcher, eventBroadcaster)
@@ -316,7 +335,7 @@ func main() {
 	if executionEngine != nil {
 		robotStateProvider = executionEngine
 	}
-	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster, mallAssistantHandler, mallService, robotStateProvider)
+	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster, mallAssistantHandler, mallService, robotStateProvider, simRobotService)
 	r := mux.NewRouter()
 
 	healthHandler := health.NewHandler(bus, db)

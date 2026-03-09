@@ -1,0 +1,49 @@
+{
+  "scenario_name": "unknown_store",
+  "status": "FAIL",
+  "start_time": "2026-03-10T03:50:16.340939+05:00",
+  "end_time": "2026-03-10T03:50:28.343639+05:00",
+  "duration_ms": 12002,
+  "assertions_passed": 1,
+  "assertions_failed": 1,
+  "final_robot_state": "IDLE",
+  "emitted_events": [
+    {
+      "type": "task_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "status": "completed",
+        "task_id": "55189ce2-8fbb-4a61-8c8c-495358146fee"
+      },
+      "timestamp": "2026-03-10T03:50:16.341564+05:00"
+    },
+    {
+      "type": "visitor_interaction_started",
+      "payload": {
+        "robot_id": "sim-001",
+        "task_id": "a746458b-9306-4f7b-b86d-e5816d82082a"
+      },
+      "timestamp": "2026-03-10T03:50:17.311232+05:00"
+    }
+  ],
+  "results": [
+    {
+      "AssertionType": "no_navigation_task_created",
+      "Passed": false,
+      "Message": "found navigate_to_store task f374fdd2-23a1-46ae-9b0d-cdc669b45e82 (expected none)",
+      "Details": {
+        "task_id": "f374fdd2-23a1-46ae-9b0d-cdc669b45e82"
+      }
+    },
+    {
+      "AssertionType": "task_status",
+      "Passed": true,
+      "Message": "task c52116ea-ca40-4134-9684-f14a18d7f947 has status completed",
+      "Details": {
+        "actual": "completed",
+        "expected": "completed",
+        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+      }
+    }
+  ]
+}

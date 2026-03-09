@@ -1,0 +1,16 @@
+name: unknown_store
+description: "Visitor asks for a store that does not exist - platform must reject gracefully, no navigation task created"
+robot_id: sim-001
+preconditions:
+  - robot_online: true
+steps:
+  - action: start_mall_assistant
+  - action: submit_visitor_request
+    text: "Where is NonExistentStore?"
+  - action: wait
+    timeout_sec: 10
+assertions:
+  - type: no_navigation_task_created
+  - type: task_status
+    scenario_id: mall_assistant
+    status: completed

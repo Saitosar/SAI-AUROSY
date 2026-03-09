@@ -23,6 +23,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
 	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
 	"github.com/sai-aurosy/platform/internal/mall"
+	"github.com/sai-aurosy/platform/internal/simrobot"
 	"github.com/sai-aurosy/platform/pkg/control-plane/mallassistant"
 	"github.com/sai-aurosy/platform/pkg/control-plane/marketplace"
 	"github.com/sai-aurosy/platform/pkg/control-plane/orchestration"
@@ -66,10 +67,11 @@ type Server struct {
 	mallAssistantHandler *mallassistant.Handler
 	mallService          *mall.Service
 	robotStateProvider   robot.RobotStateProvider
+	simRobotService      *simrobot.SimRobotService
 }
 
-// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, conversationCatalog, mallAssistantHandler, mallService, and robotStateProvider are optional.
-func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster, mallAssistantHandler *mallassistant.Handler, mallService *mall.Service, robotStateProvider robot.RobotStateProvider) *Server {
+// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, conversationCatalog, mallAssistantHandler, mallService, robotStateProvider, and simRobotService are optional.
+func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster, mallAssistantHandler *mallassistant.Handler, mallService *mall.Service, robotStateProvider robot.RobotStateProvider, simRobotService *simrobot.SimRobotService) *Server {
 	var apiKeyManager auth.APIKeyManager
 	if apiKeyStore != nil {
 		apiKeyManager, _ = apiKeyStore.(auth.APIKeyManager)
@@ -101,6 +103,7 @@ func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeySt
 		mallAssistantHandler: mallAssistantHandler,
 		mallService:          mallService,
 		robotStateProvider:  robotStateProvider,
+		simRobotService:     simRobotService,
 	}
 }
 
@@ -199,6 +202,14 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 		v1.Handle("/conversations/{id}", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getConversation)))).Methods("GET")
 		v1.Handle("/conversations/{id}", jwtMW(adminOnly(http.HandlerFunc(s.updateConversation)))).Methods("PUT")
 		v1.Handle("/conversations/{id}", jwtMW(adminOnly(http.HandlerFunc(s.deleteConversation)))).Methods("DELETE")
+	}
+	if s.simRobotService != nil {
+		v1.Handle("/simrobots", jwtMW(opOrAdmin(http.HandlerFunc(s.simRobotCreate)))).Methods("POST")
+		v1.Handle("/simrobots/{robot_id}/start", jwtMW(opOrAdmin(http.HandlerFunc(s.simRobotStart)))).Methods("POST")
+		v1.Handle("/simrobots/{robot_id}/stop", jwtMW(opOrAdmin(http.HandlerFunc(s.simRobotStop)))).Methods("POST")
+		v1.Handle("/simrobots/{robot_id}/reset", jwtMW(opOrAdmin(http.HandlerFunc(s.simRobotReset)))).Methods("POST")
+		v1.Handle("/simrobots/{robot_id}/inject-failure", jwtMW(opOrAdmin(http.HandlerFunc(s.simRobotInjectFailure)))).Methods("POST")
+		v1.Handle("/simrobots/{robot_id}/state", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.simRobotGetState)))).Methods("GET")
 	}
 }
 
@@ -2866,4 +2877,78 @@ func parseTimeRange(r *http.Request, defaultRange time.Duration) (from, to time.
 		}
 	}
 	return from, to
+}
+
+// Sim robot handlers
+
+func (s *Server) simRobotCreate(w http.ResponseWriter, r *http.Request) {
+	var opts simrobot.CreateRobotOpts
+	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	robot, err := s.simRobotService.CreateRobot(opts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]any{"robot_id": robot.ID()})
+}
+
+func (s *Server) simRobotStart(w http.ResponseWriter, r *http.Request) {
+	robotID := mux.Vars(r)["robot_id"]
+	if err := s.simRobotService.Start(r.Context(), robotID); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"status": "started"})
+}
+
+func (s *Server) simRobotStop(w http.ResponseWriter, r *http.Request) {
+	robotID := mux.Vars(r)["robot_id"]
+	if err := s.simRobotService.Stop(robotID); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"status": "stopped"})
+}
+
+func (s *Server) simRobotReset(w http.ResponseWriter, r *http.Request) {
+	robotID := mux.Vars(r)["robot_id"]
+	if err := s.simRobotService.Reset(robotID); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"status": "reset"})
+}
+
+func (s *Server) simRobotInjectFailure(w http.ResponseWriter, r *http.Request) {
+	robotID := mux.Vars(r)["robot_id"]
+	var cfg simrobot.FailureConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if err := s.simRobotService.InjectFailure(robotID, &cfg); err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"status": "failure injected"})
+}
+
+func (s *Server) simRobotGetState(w http.ResponseWriter, r *http.Request) {
+	robotID := mux.Vars(r)["robot_id"]
+	state, err := s.simRobotService.GetState(robotID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
 }

@@ -1,0 +1,19 @@
+name: offline_mid_route
+description: "Task starts, robot goes offline during navigation - execution engine transitions to error path"
+robot_id: sim-001
+failure_config:
+  type: offline_mid_route
+  when_distance_lt: 10
+preconditions:
+  - robot_online: true
+steps:
+  - action: start_mall_assistant
+  - action: submit_visitor_request
+    text: "Where is Nike?"
+  - action: wait_navigation_complete
+    timeout_sec: 35
+assertions:
+  - type: robot_offline_causes_failure
+  - type: task_status
+    scenario_id: navigate_to_store
+    status: failed

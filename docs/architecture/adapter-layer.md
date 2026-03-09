@@ -19,9 +19,10 @@ Adapters subscribe to `commands.robots.{robot_id}` and publish to `telemetry.rob
 | AGIBOT | `x1-` | `pkg/adapters/agibot/` |
 | Unitree | `go2-` | `pkg/adapters/unitree/` |
 | ROS (generic) | `ros-` | `pkg/adapters/ros/` |
+| Simulated | `sim-` | `internal/simrobot/` (virtual adapter, no RobotAdapter) |
 | Custom | `{vendor}-` | Implement per [RobotAdapter Contract](../adapters/robot-adapter-contract.md) |
 
-Examples: `x1-001`, `go2-001`, `ros-001`.
+Examples: `x1-001`, `go2-001`, `ros-001`, `sim-001`.
 
 ## Adapter Interface
 
@@ -80,6 +81,7 @@ Scenarios declare `RequiredCapabilities`. Tasks are only assigned to robots that
 
 - [RobotAdapter Contract](../adapters/robot-adapter-contract.md)
 - [Platform Architecture](platform-architecture.md)
+- [Simulated Robot Harness](simulated-robot-harness.md)
 - [Multi-Robot Architecture](multi-robot-architecture.md)
 - [Agibot](../vendors/agibot.md)
 - [Unitree](../vendors/unitree.md)
