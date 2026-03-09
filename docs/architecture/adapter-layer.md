@@ -8,6 +8,20 @@ The adapter layer abstracts vendor-specific APIs (AimRT, ROS2, SDK) and exposes 
 
 - [Agibot](../vendors/agibot.md)
 - [Unitree](../vendors/unitree.md)
+- [ROS](../vendors/ros.md) (ROS1/ROS2 generic adapter)
+
+## robot_id Prefix Convention
+
+Adapters subscribe to `commands.robots.{robot_id}` and publish to `telemetry.robots.{robot_id}`. Use the following prefix convention when registering robots in Fleet Registry:
+
+| Vendor | robot_id Prefix | Adapter |
+|--------|-----------------|---------|
+| AGIBOT | `x1-` | `pkg/adapters/agibot/` |
+| Unitree | `go2-` | `pkg/adapters/unitree/` |
+| ROS (generic) | `ros-` | `pkg/adapters/ros/` |
+| Custom | `{vendor}-` | Implement per [RobotAdapter Contract](../adapters/robot-adapter-contract.md) |
+
+Examples: `x1-001`, `go2-001`, `ros-001`.
 
 ## Adapter Interface
 
@@ -57,14 +71,16 @@ Scenarios declare `RequiredCapabilities`. Tasks are only assigned to robots that
 
 ## Adding New Vendors
 
-1. Implement `RobotAdapter` in `pkg/adapters/<vendor>/`
-2. Map vendor protocols to normalized `Telemetry` and `Command`
-3. Register adapter in the Command Arbiter for the vendor's `robot_id` prefix
+1. Implement `RobotAdapter` in `pkg/adapters/<vendor>/` (see [template](../../pkg/adapters/template/README.md))
+2. Map vendor protocols to normalized `Telemetry` and `Command` per [RobotAdapter Contract](../adapters/robot-adapter-contract.md)
+3. Use a consistent `robot_id` prefix for your vendor (e.g. `myrobot-001`)
 4. Document protocols in `docs/vendors/<vendor>.md`
 
 ## Related Documents
 
+- [RobotAdapter Contract](../adapters/robot-adapter-contract.md)
 - [Platform Architecture](platform-architecture.md)
 - [Multi-Robot Architecture](multi-robot-architecture.md)
 - [Agibot](../vendors/agibot.md)
 - [Unitree](../vendors/unitree.md)
+- [ROS](../vendors/ros.md)

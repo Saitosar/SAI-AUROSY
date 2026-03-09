@@ -25,6 +25,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
+	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
 	"github.com/sai-aurosy/platform/pkg/control-plane/tasks"
 	"github.com/sai-aurosy/platform/pkg/control-plane/webhooks"
 	"github.com/sai-aurosy/platform/pkg/hal"
@@ -91,13 +92,16 @@ func main() {
 	var auditStore audit.Store
 	var webhookStore webhooks.Store
 	var analyticsStore analytics.Store
+	var edgeStore edges.Store
 	if db != nil {
 		auditStore = audit.NewSQLStore(db, driver)
 		webhookStore = webhooks.NewSQLStore(db, driver)
 		analyticsStore = analytics.NewSQLStore(db, driver)
+		edgeStore = edges.NewSQLStore(db, driver)
 	} else {
 		auditStore = audit.NewMemoryStore()
 		webhookStore = webhooks.NewMemoryStore()
+		edgeStore = edges.NewMemoryStore()
 	}
 
 	webhookDispatcher := webhooks.NewDispatcher(webhookStore)
@@ -129,7 +133,7 @@ func main() {
 		cancel()
 	}()
 
-	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore)
+	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore)
 	r := mux.NewRouter()
 
 	healthHandler := health.NewHandler(bus, db)
