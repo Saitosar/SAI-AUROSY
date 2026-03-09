@@ -13,6 +13,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/auth"
 	"github.com/sai-aurosy/platform/pkg/control-plane/coordinator"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
+	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
 	"github.com/sai-aurosy/platform/pkg/control-plane/orchestration"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/webhooks"
@@ -24,11 +25,11 @@ import (
 
 // Server is the Control Plane API server.
 type Server struct {
-	registry         registry.Store
-	bus              *telemetry.Bus
-	apiKeyStore      auth.APIKeyStore
-	taskStore        tasks.Store
-	scenarioCatalog  *scenarios.Catalog
+	registry          registry.Store
+	bus               *telemetry.Bus
+	apiKeyStore       auth.APIKeyStore
+	taskStore         tasks.Store
+	scenarioCatalog   *scenarios.Catalog
 	coordinator       *coordinator.Coordinator
 	workflowCatalog   *orchestration.Catalog
 	workflowRunStore  orchestration.RunStore
@@ -37,10 +38,11 @@ type Server struct {
 	webhookStore      webhooks.Store
 	webhookDispatcher *webhooks.Dispatcher
 	analyticsStore    analytics.Store
+	edgeStore         edges.Store
 }
 
-// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, and analyticsStore are optional.
-func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store) *Server {
+// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, and edgeStore are optional.
+func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store) *Server {
 	return &Server{
 		registry:          reg,
 		bus:               bus,
@@ -55,6 +57,7 @@ func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeySt
 		webhookStore:      webhookStore,
 		webhookDispatcher: webhookDispatcher,
 		analyticsStore:    analyticsStore,
+		edgeStore:         edgeStore,
 	}
 }
 
@@ -92,6 +95,9 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/webhooks/{id}", jwtMW(adminOnly(http.HandlerFunc(s.deleteWebhook)))).Methods("DELETE")
 	v1.Handle("/analytics/robots", jwtMW(opOrAdmin(http.HandlerFunc(s.listRobotAnalyticsSummaries)))).Methods("GET")
 	v1.Handle("/analytics/robots/{id}/summary", jwtMW(opOrAdmin(http.HandlerFunc(s.getRobotAnalyticsSummary)))).Methods("GET")
+	v1.Handle("/edges", jwtMW(opOrAdmin(http.HandlerFunc(s.listEdges)))).Methods("GET")
+	v1.Handle("/edges/{id}", jwtMW(opOrAdmin(http.HandlerFunc(s.getEdge)))).Methods("GET")
+	v1.Handle("/edges/{id}/heartbeat", http.HandlerFunc(s.edgeHeartbeat)).Methods("POST")
 
 	// Legacy routes (deprecated)
 	r.HandleFunc("/robots", deprecate(s.listRobots)).Methods("GET")
@@ -141,8 +147,10 @@ type robotRequest struct {
 	ID              string `json:"id"`
 	Vendor          string `json:"vendor"`
 	Model           string `json:"model"`
-	AdapterEndpoint string `json:"adapter_endpoint"`
-	TenantID        string `json:"tenant_id"`
+	AdapterEndpoint string   `json:"adapter_endpoint"`
+	TenantID        string   `json:"tenant_id"`
+	EdgeID         string   `json:"edge_id"`
+	Capabilities   []string `json:"capabilities"`
 }
 
 func (s *Server) createRobot(w http.ResponseWriter, r *http.Request) {
@@ -162,14 +170,18 @@ func (s *Server) createRobot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "robot already exists", http.StatusConflict)
 		return
 	}
-	defaultCaps := []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation}
+	caps := req.Capabilities
+	if len(caps) == 0 {
+		caps = []string{hal.CapWalk, hal.CapStand, hal.CapSafeStop, hal.CapReleaseControl, hal.CapCmdVel, hal.CapZeroMode, hal.CapPatrol, hal.CapNavigation}
+	}
 	robot := &hal.Robot{
 		ID:              req.ID,
 		Vendor:          req.Vendor,
 		Model:           req.Model,
 		AdapterEndpoint: req.AdapterEndpoint,
 		TenantID:        req.TenantID,
-		Capabilities:    defaultCaps,
+		EdgeID:          req.EdgeID,
+		Capabilities:    caps,
 	}
 	s.registry.Add(robot)
 	if s.auditStore != nil {
@@ -214,6 +226,10 @@ func (s *Server) updateRobot(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.TenantID != "" {
 		robot.TenantID = req.TenantID
+	}
+	robot.EdgeID = req.EdgeID
+	if len(req.Capabilities) > 0 {
+		robot.Capabilities = req.Capabilities
 	}
 	s.registry.Add(robot)
 	if s.auditStore != nil {
@@ -300,7 +316,12 @@ func (s *Server) sendCommand(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "command not allowed", http.StatusForbidden)
 		return
 	}
-	if err := s.bus.PublishCommand(cmd); err != nil {
+	if robot.EdgeID != "" && s.edgeStore != nil {
+		if err := s.edgeStore.EnqueueCommand(r.Context(), robot.EdgeID, robotID, cmd); err != nil {
+			http.Error(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+	} else if err := s.bus.PublishCommand(cmd); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -829,6 +850,88 @@ func (s *Server) getRobotAnalyticsSummary(w http.ResponseWriter, r *http.Request
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(sum)
+}
+
+func (s *Server) listEdges(w http.ResponseWriter, r *http.Request) {
+	if s.edgeStore == nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]edges.Edge{})
+		return
+	}
+	list, err := s.edgeStore.ListEdges(r.Context())
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (s *Server) getEdge(w http.ResponseWriter, r *http.Request) {
+	if s.edgeStore == nil {
+		http.Error(w, "edges not configured", http.StatusServiceUnavailable)
+		return
+	}
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	e, err := s.edgeStore.GetEdge(r.Context(), id)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if e == nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(e)
+}
+
+type heartbeatRequest struct {
+	EdgeID    string   `json:"edge_id"`
+	Timestamp string   `json:"timestamp"`
+	Robots    []string `json:"robots"`
+}
+
+func (s *Server) edgeHeartbeat(w http.ResponseWriter, r *http.Request) {
+	if s.edgeStore == nil {
+		http.Error(w, "edges not configured", http.StatusServiceUnavailable)
+		return
+	}
+	vars := mux.Vars(r)
+	edgeID := vars["id"]
+	if edgeID == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	var req heartbeatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	req.EdgeID = edgeID
+	now := time.Now()
+	e := &edges.Edge{
+		ID:            edgeID,
+		LastHeartbeat: now,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+	if err := s.edgeStore.UpsertEdge(r.Context(), e); err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	pending, err := s.edgeStore.FetchAndAckPendingCommands(r.Context(), edgeID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"pending_commands": pending})
 }
 
 func parseTimeRange(r *http.Request, defaultRange time.Duration) (from, to time.Time) {

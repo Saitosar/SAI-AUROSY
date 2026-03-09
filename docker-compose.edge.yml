@@ -1,0 +1,52 @@
+# Edge deployment: edge-agent + local NATS + adapters
+# Connects to Cloud Control Plane via CLOUD_URL for heartbeat and command relay.
+#
+# Usage:
+#   1. Start Cloud: docker compose up -d
+#   2. Set edge_id on robots: PUT /v1/robots/x1-001 {"edge_id":"edge-001"}, etc.
+#   3. Start Edge: CLOUD_URL=http://host.docker.internal:8080 docker compose -f docker-compose.edge.yml up -d
+#
+# Commands sent to edge-managed robots are queued in cloud and fetched by edge-agent on heartbeat.
+
+services:
+  nats-edge:
+    image: nats:2-alpine
+    ports:
+      - "4223:4222"
+      - "8223:8222"
+    command: ["-m", "8222"]
+
+  edge-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge-agent
+    environment:
+      EDGE_ID: edge-001
+      NATS_URL: nats://nats-edge:4222
+      CLOUD_URL: ${CLOUD_URL:-http://host.docker.internal:8080}
+      EDGE_ROBOT_IDS: x1-001,go2-001
+      EDGE_HEARTBEAT_SEC: "10"
+    depends_on:
+      - nats-edge
+
+  agibot-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.adapter
+    environment:
+      ROBOT_ID: x1-001
+      NATS_URL: nats://nats-edge:4222
+      AGIBOT_MOCK: "1"
+    depends_on:
+      - nats-edge
+
+  unitree-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile.adapter.unitree
+    environment:
+      ROBOT_ID: go2-001
+      NATS_URL: nats://nats-edge:4222
+      UNITREE_MOCK: "1"
+    depends_on:
+      - nats-edge

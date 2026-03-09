@@ -95,14 +95,18 @@ func (s *SQLStore) Add(r *hal.Robot) {
 	if r.Capabilities == nil {
 		capsJSON = []byte("[]")
 	}
+	edgeID := ""
+	if r.EdgeID != "" {
+		edgeID = r.EdgeID
+	}
 	if s.driver == "pgx" {
-		s.db.Exec(s.ph("INSERT INTO robots (id, vendor, model, adapter_endpoint, tenant_id, capabilities, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET vendor=?, model=?, adapter_endpoint=?, tenant_id=?, capabilities=?, updated_at=?"),
-			r.ID, r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, string(capsJSON), r.CreatedAt, r.UpdatedAt,
-			r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, string(capsJSON), r.UpdatedAt,
+		s.db.Exec(s.ph("INSERT INTO robots (id, vendor, model, adapter_endpoint, tenant_id, edge_id, capabilities, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET vendor=?, model=?, adapter_endpoint=?, tenant_id=?, edge_id=?, capabilities=?, updated_at=?"),
+			r.ID, r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, edgeID, string(capsJSON), r.CreatedAt, r.UpdatedAt,
+			r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, edgeID, string(capsJSON), r.UpdatedAt,
 		)
 	} else {
-		s.db.Exec("INSERT OR REPLACE INTO robots (id, vendor, model, adapter_endpoint, tenant_id, capabilities, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-			r.ID, r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, string(capsJSON), r.CreatedAt, r.UpdatedAt,
+		s.db.Exec("INSERT OR REPLACE INTO robots (id, vendor, model, adapter_endpoint, tenant_id, edge_id, capabilities, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			r.ID, r.Vendor, r.Model, r.AdapterEndpoint, r.TenantID, edgeID, string(capsJSON), r.CreatedAt, r.UpdatedAt,
 		)
 	}
 }
@@ -112,9 +116,9 @@ func (s *SQLStore) Get(id string) *hal.Robot {
 	var r hal.Robot
 	var capsJSON sql.NullString
 	err := s.db.QueryRow(
-		s.ph("SELECT id, vendor, model, adapter_endpoint, tenant_id, capabilities, created_at, updated_at FROM robots WHERE id=?"),
+		s.ph("SELECT id, vendor, model, adapter_endpoint, tenant_id, COALESCE(edge_id,''), capabilities, created_at, updated_at FROM robots WHERE id=?"),
 		id,
-	).Scan(&r.ID, &r.Vendor, &r.Model, &r.AdapterEndpoint, &r.TenantID, &capsJSON, &r.CreatedAt, &r.UpdatedAt)
+	).Scan(&r.ID, &r.Vendor, &r.Model, &r.AdapterEndpoint, &r.TenantID, &r.EdgeID, &capsJSON, &r.CreatedAt, &r.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil
 	}
@@ -127,9 +131,10 @@ func (s *SQLStore) Get(id string) *hal.Robot {
 	return &r
 }
 
+
 // List returns all robots.
 func (s *SQLStore) List() []hal.Robot {
-	rows, err := s.db.Query("SELECT id, vendor, model, adapter_endpoint, tenant_id, capabilities, created_at, updated_at FROM robots ORDER BY id")
+	rows, err := s.db.Query("SELECT id, vendor, model, adapter_endpoint, tenant_id, COALESCE(edge_id,''), capabilities, created_at, updated_at FROM robots ORDER BY id")
 	if err != nil {
 		return nil
 	}
@@ -138,7 +143,7 @@ func (s *SQLStore) List() []hal.Robot {
 	for rows.Next() {
 		var r hal.Robot
 		var capsJSON sql.NullString
-		if err := rows.Scan(&r.ID, &r.Vendor, &r.Model, &r.AdapterEndpoint, &r.TenantID, &capsJSON, &r.CreatedAt, &r.UpdatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Vendor, &r.Model, &r.AdapterEndpoint, &r.TenantID, &r.EdgeID, &capsJSON, &r.CreatedAt, &r.UpdatedAt); err != nil {
 			continue
 		}
 		if capsJSON.Valid && capsJSON.String != "" {

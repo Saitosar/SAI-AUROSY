@@ -39,6 +39,8 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 **Phase 2.4** — Enterprise и аналитика: Webhooks, REST API, OpenAPI/Swagger, телеметрия, агрегации, audit_log, дашборды. See [Phase 2.4 Enterprise Analytics](docs/implementation/phase-2.4-enterprise-analytics.md).
 
+**Phase 2.5** — Deployment и расширяемость: Edge Agent, Cloud edges API, ROS adapter, Adapter SDK. See [Phase 2.5 Deployment Extensibility](docs/implementation/phase-2.5-deployment-extensibility.md).
+
 ---
 
 # Documentation
@@ -66,6 +68,7 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 - [Phase 2.2 Task Engine](docs/implementation/phase-2.2-task-engine.md)
 - [Phase 2.3 Multi-Robot](docs/implementation/phase-2.3-multi-robot.md)
 - [Phase 2.4 Enterprise Analytics](docs/implementation/phase-2.4-enterprise-analytics.md)
+- [Phase 2.5 Deployment Extensibility](docs/implementation/phase-2.5-deployment-extensibility.md)
 - [Multi-robot architecture](docs/architecture/multi-robot-architecture.md)
 - [Adapter layer](docs/architecture/adapter-layer.md)
 - [Deployment model (edge/cloud)](docs/architecture/deployment-model.md)
@@ -76,6 +79,7 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 - [AGIBOT integration notes](docs/vendors/agibot.md)
 - [UNITREE integration notes](docs/vendors/unitree.md)
+- [ROS integration notes](docs/vendors/ros.md)
 
 ---
 
