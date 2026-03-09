@@ -135,7 +135,7 @@ E4 --> F4
 - **Event Broker** — шина событий.
 - **Telemetry Bus** — шина телеметрии.
 - **Streaming Gateway** — потоковая передача данных (SSE: фильтры robot_id, reconnect Last-Event-ID, backpressure). См. [Phase 3.1 Streaming Gateway](../implementation/phase-3.1-streaming-gateway.md).
-- **Cognitive Gateway** — когнитивные/AI-сервисы (навигация, распознавание, планирование). См. [Cognitive Gateway](cognitive-gateway.md), [Phase 3.2](../implementation/phase-3.2-cognitive-gateway.md).
+- **Cognitive Gateway** — когнитивные/AI-сервисы (навигация, распознавание, планирование, Speech Layer: STT, TTS, intent). См. [Cognitive Gateway](cognitive-gateway.md), [Speech Layer](speech-layer.md), [Phase 3.2](../implementation/phase-3.2-cognitive-gateway.md), [Phase 3.5](../implementation/phase-3.5-speech-layer.md).
 - **Developer Platform** — API keys self-service, sandbox tenant, Swagger UI, developer docs. См. [Phase 3.3](../implementation/phase-3.3-developer-platform.md).
 - **Robot Application Marketplace** — каталог сценариев, категории, рейтинги. См. [Phase 3.4](../implementation/phase-3.4-marketplace.md).
 

@@ -18,6 +18,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/events"
 	"github.com/sai-aurosy/platform/pkg/control-plane/commands"
 	"github.com/sai-aurosy/platform/pkg/control-plane/cognitive"
+	"github.com/sai-aurosy/platform/pkg/control-plane/conversations"
 	"github.com/sai-aurosy/platform/pkg/control-plane/coordinator"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
 	"github.com/sai-aurosy/platform/pkg/control-plane/edges"
@@ -54,14 +55,15 @@ type Server struct {
 	tenantStore       tenants.Store
 	oauthServer       *oauth.Server
 	streamBuffer       *streaming.RingBuffer
-	cognitiveGateway   cognitive.Gateway
-	marketplaceStore   marketplace.Store
-	idempotencyStore   commands.Store
-	eventBroadcaster   *events.Broadcaster
+	cognitiveGateway    cognitive.Gateway
+	conversationCatalog *conversations.Catalog
+	marketplaceStore    marketplace.Store
+	idempotencyStore    commands.Store
+	eventBroadcaster    *events.Broadcaster
 }
 
-// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, and eventBroadcaster are optional.
-func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster) *Server {
+// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, and conversationCatalog are optional.
+func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster) *Server {
 	var apiKeyManager auth.APIKeyManager
 	if apiKeyStore != nil {
 		apiKeyManager, _ = apiKeyStore.(auth.APIKeyManager)
@@ -84,9 +86,10 @@ func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeySt
 		edgeStore:         edgeStore,
 		tenantStore:       tenantStore,
 		oauthServer:       oauthServer,
-		streamBuffer:      streamBuffer,
-		cognitiveGateway:  cognitiveGateway,
-		marketplaceStore:  marketplaceStore,
+		streamBuffer:       streamBuffer,
+		cognitiveGateway:   cognitiveGateway,
+		conversationCatalog: conversationCatalog,
+		marketplaceStore:   marketplaceStore,
 		idempotencyStore:  idempotencyStore,
 		eventBroadcaster:  eventBroadcaster,
 	}
@@ -169,6 +172,16 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/cognitive/navigate", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveNavigate)))).Methods("POST")
 	v1.Handle("/cognitive/recognize", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveRecognize)))).Methods("POST")
 	v1.Handle("/cognitive/plan", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitivePlan)))).Methods("POST")
+	v1.Handle("/cognitive/transcribe", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveTranscribe)))).Methods("POST")
+	v1.Handle("/cognitive/synthesize", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveSynthesize)))).Methods("POST")
+	v1.Handle("/cognitive/understand-intent", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveUnderstandIntent)))).Methods("POST")
+	if s.conversationCatalog != nil {
+		v1.Handle("/conversations", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.listConversations)))).Methods("GET")
+		v1.Handle("/conversations", jwtMW(adminOnly(http.HandlerFunc(s.createConversation)))).Methods("POST")
+		v1.Handle("/conversations/{id}", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getConversation)))).Methods("GET")
+		v1.Handle("/conversations/{id}", jwtMW(adminOnly(http.HandlerFunc(s.updateConversation)))).Methods("PUT")
+		v1.Handle("/conversations/{id}", jwtMW(adminOnly(http.HandlerFunc(s.deleteConversation)))).Methods("DELETE")
+	}
 }
 
 func auditActor(operatorID string) string {
@@ -1443,6 +1456,248 @@ func (s *Server) cognitivePlan(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) cognitiveTranscribe(w http.ResponseWriter, r *http.Request) {
+	if s.cognitiveGateway == nil {
+		http.Error(w, "cognitive gateway not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req cognitive.TranscribeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	if tenantID != "" {
+		robot := s.registry.Get(req.RobotID)
+		if robot == nil || robot.TenantID != tenantID {
+			http.Error(w, "robot not found", http.StatusNotFound)
+			return
+		}
+	}
+	res, err := s.cognitiveGateway.Transcribe(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) cognitiveSynthesize(w http.ResponseWriter, r *http.Request) {
+	if s.cognitiveGateway == nil {
+		http.Error(w, "cognitive gateway not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req cognitive.SynthesizeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	if req.Text == "" {
+		http.Error(w, "text required", http.StatusBadRequest)
+		return
+	}
+	if req.Language == "" {
+		http.Error(w, "language required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	if tenantID != "" {
+		robot := s.registry.Get(req.RobotID)
+		if robot == nil || robot.TenantID != tenantID {
+			http.Error(w, "robot not found", http.StatusNotFound)
+			return
+		}
+	}
+	res, err := s.cognitiveGateway.Synthesize(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) cognitiveUnderstandIntent(w http.ResponseWriter, r *http.Request) {
+	if s.cognitiveGateway == nil {
+		http.Error(w, "cognitive gateway not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req cognitive.UnderstandIntentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	if req.Text == "" {
+		http.Error(w, "text required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	if tenantID != "" {
+		robot := s.registry.Get(req.RobotID)
+		if robot == nil || robot.TenantID != tenantID {
+			http.Error(w, "robot not found", http.StatusNotFound)
+			return
+		}
+	}
+	res, err := s.cognitiveGateway.UnderstandIntent(r.Context(), req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) listConversations(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	list, err := s.conversationCatalog.ListForTenant(r.Context(), tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (s *Server) getConversation(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "conversation id required", http.StatusBadRequest)
+		return
+	}
+	conv, err := s.conversationCatalog.GetForTenant(r.Context(), id, tenantID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if conv == nil {
+		http.Error(w, "conversation not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conv)
+}
+
+func (s *Server) createConversation(w http.ResponseWriter, r *http.Request) {
+	var conv conversations.Conversation
+	if err := json.NewDecoder(r.Body).Decode(&conv); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if conv.ID == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	if conv.Intent == "" {
+		http.Error(w, "intent required", http.StatusBadRequest)
+		return
+	}
+	if conv.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	if conv.ResponseTemplate == "" && conv.ResponseProviderURL == "" {
+		http.Error(w, "response_template or response_provider_url required", http.StatusBadRequest)
+		return
+	}
+	if err := s.conversationCatalog.Create(r.Context(), &conv); err != nil {
+		if errors.Is(err, conversations.ErrAlreadyExists) {
+			http.Error(w, "conversation already exists", http.StatusConflict)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(conv)
+}
+
+func (s *Server) updateConversation(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "conversation id required", http.StatusBadRequest)
+		return
+	}
+	var conv conversations.Conversation
+	if err := json.NewDecoder(r.Body).Decode(&conv); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	conv.ID = id
+	if conv.Intent == "" {
+		http.Error(w, "intent required", http.StatusBadRequest)
+		return
+	}
+	if conv.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	if conv.ResponseTemplate == "" && conv.ResponseProviderURL == "" {
+		http.Error(w, "response_template or response_provider_url required", http.StatusBadRequest)
+		return
+	}
+	if err := s.conversationCatalog.Update(r.Context(), &conv); err != nil {
+		if errors.Is(err, conversations.ErrNotFound) {
+			http.Error(w, "conversation not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conv)
+}
+
+func (s *Server) deleteConversation(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "conversation id required", http.StatusBadRequest)
+		return
+	}
+	if err := s.conversationCatalog.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, conversations.ErrNotFound) {
+			http.Error(w, "conversation not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) listZones(w http.ResponseWriter, r *http.Request) {

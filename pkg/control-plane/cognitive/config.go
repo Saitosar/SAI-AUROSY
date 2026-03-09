@@ -8,10 +8,13 @@ import (
 
 // HTTPConfig holds HTTP provider URLs and auth.
 type HTTPConfig struct {
-	NavigateURL  string `json:"navigate_url,omitempty"`
-	RecognizeURL string `json:"recognize_url,omitempty"`
-	PlanURL     string `json:"plan_url,omitempty"`
-	APIKeyEnv   string `json:"api_key_env,omitempty"` // env var name for API key
+	NavigateURL       string `json:"navigate_url,omitempty"`
+	RecognizeURL      string `json:"recognize_url,omitempty"`
+	PlanURL          string `json:"plan_url,omitempty"`
+	TranscribeURL    string `json:"transcribe_url,omitempty"`
+	SynthesizeURL    string `json:"synthesize_url,omitempty"`
+	UnderstandIntentURL string `json:"understand_intent_url,omitempty"`
+	APIKeyEnv        string `json:"api_key_env,omitempty"` // env var name for API key
 }
 
 // Config holds Cognitive Gateway provider configuration.
@@ -44,6 +47,15 @@ func LoadConfig() (*Config, error) {
 	if u := os.Getenv("COGNITIVE_HTTP_PLAN_URL"); u != "" {
 		cfg.HTTP.PlanURL = u
 	}
+	if u := os.Getenv("COGNITIVE_HTTP_TRANSCRIBE_URL"); u != "" {
+		cfg.HTTP.TranscribeURL = u
+	}
+	if u := os.Getenv("COGNITIVE_HTTP_SYNTHESIZE_URL"); u != "" {
+		cfg.HTTP.SynthesizeURL = u
+	}
+	if u := os.Getenv("COGNITIVE_HTTP_INTENT_URL"); u != "" {
+		cfg.HTTP.UnderstandIntentURL = u
+	}
 
 	// Config file overrides
 	if path := os.Getenv("COGNITIVE_CONFIG_PATH"); path != "" {
@@ -66,6 +78,15 @@ func LoadConfig() (*Config, error) {
 		}
 		if fileCfg.HTTP.PlanURL != "" {
 			cfg.HTTP.PlanURL = fileCfg.HTTP.PlanURL
+		}
+		if fileCfg.HTTP.TranscribeURL != "" {
+			cfg.HTTP.TranscribeURL = fileCfg.HTTP.TranscribeURL
+		}
+		if fileCfg.HTTP.SynthesizeURL != "" {
+			cfg.HTTP.SynthesizeURL = fileCfg.HTTP.SynthesizeURL
+		}
+		if fileCfg.HTTP.UnderstandIntentURL != "" {
+			cfg.HTTP.UnderstandIntentURL = fileCfg.HTTP.UnderstandIntentURL
 		}
 		if fileCfg.HTTP.APIKeyEnv != "" {
 			cfg.HTTP.APIKeyEnv = fileCfg.HTTP.APIKeyEnv

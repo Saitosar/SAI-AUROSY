@@ -11,6 +11,7 @@ const (
 	CapZeroMode      = "zero_mode"
 	CapPatrol        = "patrol"
 	CapNavigation    = "navigation"
+	CapSpeech        = "speech"
 )
 
 // HasCapability returns true if the robot has all capabilities in required.

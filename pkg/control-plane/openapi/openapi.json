@@ -62,6 +62,36 @@
     "/cognitive/plan": {
       "post": {"summary": "Task planning", "tags": ["cognitive"]}
     },
+    "/cognitive/transcribe": {
+      "post": {
+        "summary": "Speech-to-text (STT)",
+        "description": "Convert audio to text. Body: robot_id, audio_base64, language (optional).",
+        "tags": ["cognitive"]
+      }
+    },
+    "/cognitive/synthesize": {
+      "post": {
+        "summary": "Text-to-speech (TTS)",
+        "description": "Convert text to audio. Body: robot_id, text, language.",
+        "tags": ["cognitive"]
+      }
+    },
+    "/cognitive/understand-intent": {
+      "post": {
+        "summary": "Extract intent from text",
+        "description": "LLM-based intent extraction. Body: robot_id, text, language (optional), context (optional).",
+        "tags": ["cognitive"]
+      }
+    },
+    "/conversations": {
+      "get": {"summary": "List conversations", "description": "Intent-to-response mappings. Operator: tenant-filtered.", "tags": ["conversations"]},
+      "post": {"summary": "Create conversation (admin)", "tags": ["conversations"]}
+    },
+    "/conversations/{id}": {
+      "get": {"summary": "Get conversation", "tags": ["conversations"]},
+      "put": {"summary": "Update conversation (admin)", "tags": ["conversations"]},
+      "delete": {"summary": "Delete conversation (admin)", "tags": ["conversations"]}
+    },
     "/scenarios": {
       "get": {"summary": "List scenarios", "tags": ["scenarios"]},
       "post": {"summary": "Create scenario (admin)", "tags": ["scenarios"]}

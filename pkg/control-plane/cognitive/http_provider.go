@@ -17,11 +17,14 @@ func init() {
 
 // HTTPGateway calls external AI services via REST.
 type HTTPGateway struct {
-	client       *http.Client
-	navigateURL  string
-	recognizeURL string
-	planURL      string
-	apiKey       string
+	client             *http.Client
+	navigateURL        string
+	recognizeURL       string
+	planURL            string
+	transcribeURL      string
+	synthesizeURL      string
+	understandIntentURL string
+	apiKey             string
 }
 
 // NewHTTPGateway creates an HTTP gateway from config.
@@ -33,11 +36,14 @@ func NewHTTPGateway(cfg Config) (Gateway, error) {
 		apiKey = secrets.GetSecretOrEnv(ctx, p, cfg.HTTP.APIKeyEnv)
 	}
 	return &HTTPGateway{
-		client:       &http.Client{Timeout: 30 * time.Second},
-		navigateURL:  cfg.HTTP.NavigateURL,
-		recognizeURL: cfg.HTTP.RecognizeURL,
-		planURL:      cfg.HTTP.PlanURL,
-		apiKey:       apiKey,
+		client:              &http.Client{Timeout: 30 * time.Second},
+		navigateURL:         cfg.HTTP.NavigateURL,
+		recognizeURL:        cfg.HTTP.RecognizeURL,
+		planURL:             cfg.HTTP.PlanURL,
+		transcribeURL:       cfg.HTTP.TranscribeURL,
+		synthesizeURL:       cfg.HTTP.SynthesizeURL,
+		understandIntentURL: cfg.HTTP.UnderstandIntentURL,
+		apiKey:              apiKey,
 	}, nil
 }
 
@@ -91,6 +97,33 @@ func (h *HTTPGateway) Recognize(ctx context.Context, req RecognizeRequest) (*Rec
 func (h *HTTPGateway) Plan(ctx context.Context, req PlanRequest) (*PlanResult, error) {
 	var res PlanResult
 	if err := h.post(ctx, h.planURL, req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// Transcribe calls the configured STT service.
+func (h *HTTPGateway) Transcribe(ctx context.Context, req TranscribeRequest) (*TranscribeResult, error) {
+	var res TranscribeResult
+	if err := h.post(ctx, h.transcribeURL, req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// Synthesize calls the configured TTS service.
+func (h *HTTPGateway) Synthesize(ctx context.Context, req SynthesizeRequest) (*SynthesizeResult, error) {
+	var res SynthesizeResult
+	if err := h.post(ctx, h.synthesizeURL, req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// UnderstandIntent calls the configured intent extraction service.
+func (h *HTTPGateway) UnderstandIntent(ctx context.Context, req UnderstandIntentRequest) (*IntentResult, error) {
+	var res IntentResult
+	if err := h.post(ctx, h.understandIntentURL, req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil
