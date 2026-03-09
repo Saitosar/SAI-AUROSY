@@ -77,7 +77,7 @@ jobs:
             fi
             sleep 1
           done
-          E2E_API_KEY=e2e-api-key bash scripts/e2e.sh
+          E2E_API_KEY=e2e-admin-key bash scripts/e2e.sh
           bash scripts/e2e-tenant.sh
         env:
           API_URL: http://localhost:8080

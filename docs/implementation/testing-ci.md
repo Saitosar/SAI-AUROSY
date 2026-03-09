@@ -76,7 +76,7 @@ Tests that need NATS will skip with a message if it is unavailable.
 # Build, start stack, run E2E script (no auth)
 make e2e
 
-# E2E with auth (PostgreSQL + API key e2e-api-key)
+# E2E with auth (PostgreSQL + API key e2e-admin-key; admin role required for webhook registration)
 make e2e-auth
 
 # E2E multi-tenant (run after e2e-auth; requires stack with auth)
@@ -94,7 +94,7 @@ bash scripts/e2e.sh
 # With auth (PostgreSQL, seeded API key)
 docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
 # Wait for Control Plane (postgres + migrations): curl -sf http://localhost:8080/ready until 200, or sleep 15–20
-E2E_API_KEY=e2e-api-key bash scripts/e2e.sh
+E2E_API_KEY=e2e-admin-key bash scripts/e2e.sh
 ```
 
 **Environment variables** (optional):
@@ -113,7 +113,7 @@ GitHub Actions workflow (`.github/workflows/ci.yml`):
 
 1. **test**: Runs `go test ./...` with NATS as a service container.
 2. **e2e**: Builds and starts Docker Compose, waits for Control Plane `/ready` (up to 60s), runs `scripts/e2e.sh` (no auth).
-3. **e2e-auth**: Builds and starts with `docker-compose.e2e.yml` (PostgreSQL + auth), waits for Control Plane `/ready` (up to 90s), runs E2E with `E2E_API_KEY=e2e-api-key`, then runs multi-tenant isolation tests.
+3. **e2e-auth**: Builds and starts with `docker-compose.e2e.yml` (PostgreSQL + auth), waits for Control Plane `/ready` (up to 90s), runs E2E with `E2E_API_KEY=e2e-admin-key` (admin role required for webhook step), then runs multi-tenant isolation tests.
 
 Both E2E jobs poll `GET /ready` until it returns 200 before running tests, avoiding connection failures (curl exit 7) when the Control Plane is still starting or running migrations.
 

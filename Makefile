@@ -35,7 +35,7 @@ e2e-auth:
 	docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
 	@echo "Waiting for services to be ready..."
 	@sleep 15
-	E2E_API_KEY=e2e-api-key bash scripts/e2e.sh
+	E2E_API_KEY=e2e-admin-key bash scripts/e2e.sh
 
 e2e-tenant:
 	@echo "Running E2E multi-tenant (requires e2e stack with auth)..."

@@ -1,5 +1,5 @@
 # E2E with auth and DB. Use: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
-# Seeds API key "e2e-api-key" (operator, tenant default) via migration 000023.
+# Seeds API keys via migration 000023: e2e-api-key (operator), e2e-admin-key (administrator), e2e-sandbox-key (operator sandbox).
 
 services:
   postgres:
