@@ -32,7 +32,7 @@ All adapters implement the `RobotAdapter` interface:
 |--------|-------------|
 | `Connect(ctx)` | Establishes connection to the robot runtime (AimRT/ROS2) |
 | `SubscribeTelemetry(callback)` | Registers callback for telemetry; adapter invokes it on state updates |
-| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control`, `zero_mode`, `stand_mode`, `walk_mode`, `cmd_vel` |
+| `SendCommand(ctx, cmd)` | Sends command to robot. Commands: `safe_stop`, `release_control`, `zero_mode`, `stand_mode`, `walk_mode`, `cmd_vel`, `navigate_to`, `speak` |
 | `Disconnect()` | Closes connection |
 
 ### Commands
@@ -45,10 +45,12 @@ All adapters implement the `RobotAdapter` interface:
 | `stand_mode` | Standing pose |
 | `walk_mode` | Walking mode |
 | `cmd_vel` | Velocity command. Payload: `{ linear_x, linear_y, angular_z }` (m/s, rad/s) |
+| `navigate_to` | Navigation to target (Mall Assistant). Payload: `target_coordinates`, `store_name`, `destination_node_id`, `route`, `estimated_distance` |
+| `speak` | TTS output (Mall Assistant). Payload: `{"text": "..."}` |
 
 ### Telemetry Callback
 
-The callback receives normalized `Telemetry` with: `robot_id`, `timestamp`, `online`, `actuator_status`, `imu`, `joint_states`, `current_task`.
+The callback receives normalized `Telemetry` with: `robot_id`, `timestamp`, `online`, `actuator_status`, `imu`, `joint_states`, `current_task`, `position`, `target_position`, `distance_to_target` (for navigation).
 
 - `joint_states` — array of `{ name, position, velocity, effort }` per joint (from `/joint_states`).
 - `current_task` — heuristic from last mode command: `idle` (safe_stop), `zero` (zero_mode), `stand` (stand_mode), `walk` (walk_mode, cmd_vel).
@@ -66,7 +68,8 @@ Each robot in the Fleet Registry has a `capabilities` array describing what it c
 | `cmd_vel` | Velocity commands |
 | `zero_mode` | Zero joints |
 | `patrol` | Patrol scenario |
-| `navigation` | Navigation scenario |
+| `navigation` | Navigation scenario (navigate_to command) |
+| `speech` | Speech capability (microphone, speaker; speak command) |
 
 Scenarios declare `RequiredCapabilities`. Tasks are only assigned to robots that have all required capabilities. The Task Runner and API validate this before execution.
 

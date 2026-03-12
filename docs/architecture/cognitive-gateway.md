@@ -87,14 +87,14 @@ HTTP contract: POST with JSON body, JSON response. Each URL can point to a diffe
 
 ## API Endpoints
 
-- `POST /v1/cognitive/navigate` — navigation request
-- `POST /v1/cognitive/recognize` — recognition request
-- `POST /v1/cognitive/plan` — planning request
-- `POST /v1/cognitive/transcribe` — speech-to-text
-- `POST /v1/cognitive/synthesize` — text-to-speech
-- `POST /v1/cognitive/understand-intent` — intent extraction
+All endpoints are under `/v1` (Control Plane base path). Require authentication and respect tenant isolation (operator sees only tenant robots).
 
-All endpoints require authentication and respect tenant isolation (operator sees only tenant robots).
+- `POST /v1/cognitive/navigate` — path planning (robot_id, from, to, map_id)
+- `POST /v1/cognitive/recognize` — object/person recognition (robot_id, sensor_data)
+- `POST /v1/cognitive/plan` — task planning (task_type, context)
+- `POST /v1/cognitive/transcribe` — speech-to-text (robot_id, audio_base64, language)
+- `POST /v1/cognitive/synthesize` — text-to-speech (robot_id, text, language)
+- `POST /v1/cognitive/understand-intent` — intent extraction (robot_id, text, language, context)
 
 ## Related Documents
 

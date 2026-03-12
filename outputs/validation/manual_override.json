@@ -1,12 +1,12 @@
 {
   "scenario_name": "manual_override",
   "status": "PASS",
-  "start_time": "2026-03-10T03:43:28.31713+05:00",
-  "end_time": "2026-03-10T03:43:42.31891+05:00",
-  "duration_ms": 14001,
+  "start_time": "2026-03-10T10:30:48.901582+05:00",
+  "end_time": "2026-03-10T10:31:02.900477+05:00",
+  "duration_ms": 14006,
   "assertions_passed": 2,
   "assertions_failed": 0,
-  "final_robot_state": "ARRIVED_AT_DESTINATION",
+  "final_robot_state": "IDLE",
   "emitted_events": [
     {
       "type": "mall_store_resolved",
@@ -15,7 +15,7 @@
         "node_id": "node-nike",
         "store_name": "Nike"
       },
-      "timestamp": "2026-03-10T03:43:28.317334+05:00"
+      "timestamp": "2026-03-10T10:30:48.920741+05:00"
     },
     {
       "type": "mall_route_calculated",
@@ -26,16 +26,16 @@
         "route_length": 4,
         "to_node": "node-nike"
       },
-      "timestamp": "2026-03-10T03:43:28.317364+05:00"
+      "timestamp": "2026-03-10T10:30:48.920875+05:00"
     },
     {
       "type": "navigation_started",
       "payload": {
         "robot_id": "sim-001",
         "store": "Nike",
-        "task_id": "4b297151-ab9c-45ca-8f1a-51e7b95afc84"
+        "task_id": "3fd1751b-4e7c-464a-9542-d5f3fd869e08"
       },
-      "timestamp": "2026-03-10T03:43:28.317365+05:00"
+      "timestamp": "2026-03-10T10:30:48.920876+05:00"
     },
     {
       "type": "mall_navigation_requested",
@@ -48,7 +48,7 @@
         "store_name": "Nike",
         "to_node": "node-nike"
       },
-      "timestamp": "2026-03-10T03:43:28.317378+05:00"
+      "timestamp": "2026-03-10T10:30:48.920877+05:00"
     }
   ],
   "results": [
@@ -65,6 +65,13 @@
       "Details": {
         "field": "position"
       }
+    }
+  ],
+  "contract_violations": [
+    {
+      "Category": "telemetry",
+      "Field": "target_position",
+      "Message": "required telemetry field missing or empty"
     }
   ]
 }

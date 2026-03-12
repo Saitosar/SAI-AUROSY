@@ -72,6 +72,8 @@ Replace the placeholder logic in `handle_command()` with your robot SDK or ROS c
 | `stand_mode` | Standing pose | Stand command |
 | `walk_mode` | Walking mode | Walk command |
 | `cmd_vel` | Velocity command | ROS `/cmd_vel` or SDK velocity API |
+| `navigate_to` | Navigation to target (Mall Assistant) | Payload: `target_coordinates`, `store_name`, `destination_node_id`, `route`, `estimated_distance` |
+| `speak` | TTS output (Mall Assistant) | Payload: `{"text": "..."}`; audio via `audio.robots.{id}.output` |
 
 ### Example: `handle_command` (template)
 
@@ -178,6 +180,7 @@ Add `imu` and `joint_states` when your robot provides them.
      -H "X-API-Key: <key>" \
      -d '{"command": "safe_stop"}'
    ```
+   (Control Plane base path is `/v1`; when using Operator Console proxy, use `/api/v1`.)
 
 6. Verify the adapter logs the command and the robot responds (or mock logs it).
 
@@ -194,7 +197,8 @@ Declare capabilities in the Fleet Registry so tasks are assigned only to robots 
 | `cmd_vel` | cmd_vel |
 | `zero_mode` | zero_mode |
 | `patrol` | Scenario-level |
-| `navigation` | Scenario-level |
+| `navigation` | navigate_to (requires position, target_position, distance_to_target in telemetry) |
+| `speech` | speak; audio.robots.{id}.input, audio.robots.{id}.output |
 
 See [RobotAdapter Contract — Capabilities](robot-adapter-contract.md#capabilities).
 
