@@ -1,0 +1,14 @@
+# Override for Cocoon fake-ton test. Use with docker-compose.yml.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.cocoon-test.yml up -d
+#
+# Model Qwen/Qwen3-0.6B matches Cocoon scripts/client.conf and scripts/proxy.conf.
+# Prerequisites: Cocoon client running (see scripts/cocoon-test-setup.md).
+
+services:
+  control-plane:
+    environment:
+      COGNITIVE_PROVIDER: cocoon
+      COGNITIVE_COCOON_CLIENT_URL: http://host.docker.internal:10000
+      COGNITIVE_COCOON_MODEL: Qwen/Qwen3-0.6B
+      COGNITIVE_COCOON_TIMEOUT_SEC: "30"
+      COGNITIVE_COCOON_MAX_TOKENS: "512"

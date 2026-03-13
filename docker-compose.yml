@@ -20,14 +20,16 @@ services:
       # REGISTRY_DB_DRIVER: sqlite
       # REGISTRY_DB_DSN: file:/data/registry.db
       # LOG_FORMAT: json
-      # Cognitive Gateway (Phase 3.2):
-      # COGNITIVE_PROVIDER: mock
-      # COGNITIVE_HTTP_NAV_URL: http://nav-service:8080/navigate
-      # COGNITIVE_HTTP_RECOGNIZE_URL: http://vision-api:5000/detect
-      # COGNITIVE_HTTP_PLAN_URL: http://planner:8000/plan
+      # Cognitive Gateway (Phase 3.2) — set COGNITIVE_PROVIDER=http and URLs for Gemini:
+      COGNITIVE_PROVIDER: http
+      COGNITIVE_HTTP_TRANSCRIBE_URL: http://gemini-adapter:8001/transcribe
+      COGNITIVE_HTTP_SYNTHESIZE_URL: http://gemini-adapter:8001/synthesize
+      COGNITIVE_HTTP_INTENT_URL: http://gemini-adapter:8001/understand-intent
+      COGNITIVE_HTTP_TRANSLATE_URL: http://gemini-adapter:8001/translate
       # COGNITIVE_HTTP_API_KEY: <optional-api-key>
     depends_on:
       - nats
+      - gemini-adapter
 
   operator-console:
     build:
@@ -37,6 +39,7 @@ services:
       - "3000:80"
     depends_on:
       - control-plane
+      - gemini-live-adapter
 
   agibot-adapter:
     build:
@@ -59,6 +62,26 @@ services:
       UNITREE_MOCK: "1"
     depends_on:
       - nats
+
+  gemini-adapter:
+    build:
+      context: ./examples/integration/gemini-adapter
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PORT: "8001"
+
+  gemini-live-adapter:
+    build:
+      context: ./examples/integration/gemini-live-adapter
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      PORT: "8002"
 
   webhook-receiver:
     build:

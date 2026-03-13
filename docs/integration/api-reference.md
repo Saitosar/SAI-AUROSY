@@ -4,7 +4,7 @@ The SAI AUROSY Control Plane API is a REST API. All endpoints return JSON and re
 
 ## Versioning and Deprecation
 
-All endpoints are under `/api/v1`. Future breaking changes will introduce `/api/v2`. Deprecated versions include `Deprecation: true` and `Sunset: <date>` response headers. See [API Versioning and Deprecation Policy](api-versioning.md) for details.
+All endpoints are under `/v1`. When accessing Control Plane directly (e.g. `http://localhost:8080`), use base path `/v1`. When using Operator Console proxy or a reverse proxy that adds `/api`, the full path is `/api/v1` (proxied to `/v1`). Future breaking changes will introduce `/v2`. Deprecated versions include `Deprecation: true` and `Sunset: <date>` response headers. See [API Versioning and Deprecation Policy](api-versioning.md) for details.
 
 ## OpenAPI Specification
 
@@ -17,7 +17,7 @@ Use this for code generation, client SDKs, and detailed request/response schemas
 
 ## Idempotency
 
-For `POST /api/v1/robots/{id}/command`, include the `Idempotency-Key` header (UUID or opaque string) to prevent duplicate commands on retry. Keys are valid for 24 hours.
+For `POST /v1/robots/{id}/command`, include the `Idempotency-Key` header (UUID or opaque string) to prevent duplicate commands on retry. Keys are valid for 24 hours.
 
 ## Endpoint Overview
 
@@ -25,7 +25,7 @@ For `POST /api/v1/robots/{id}/command`, include the `Idempotency-Key` header (UU
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/me` | Current user info: `{ roles: string[], tenant_id?: string }`. Used by Operator Console for read-only mode. |
+| GET | `/v1/me` | Current user info: `{ roles: string[], tenant_id?: string }`. Used by Operator Console for read-only mode. |
 
 ### Robots
 
@@ -33,109 +33,115 @@ Robot objects include optional `location` for fleet grouping (e.g. "Warehouse A"
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/robots` | List robots. Query: `tenant_id` |
-| GET | `/api/v1/robots/{id}` | Get robot |
-| POST | `/api/v1/robots` | Create robot (admin) |
-| PUT | `/api/v1/robots/{id}` | Update robot (admin) |
-| DELETE | `/api/v1/robots/{id}` | Delete robot (admin) |
-| POST | `/api/v1/robots/{id}/command` | Send command (e.g. safe_stop). Optional `Idempotency-Key` header prevents duplicates on retry. |
+| GET | `/v1/robots` | List robots. Query: `tenant_id` |
+| GET | `/v1/robots/{id}` | Get robot |
+| POST | `/v1/robots` | Create robot (admin) |
+| PUT | `/v1/robots/{id}` | Update robot (admin) |
+| DELETE | `/v1/robots/{id}` | Delete robot (admin) |
+| POST | `/v1/robots/{id}/command` | Send command (e.g. safe_stop). Optional `Idempotency-Key` header prevents duplicates on retry. |
 
 ### Tasks
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/tasks` | List tasks. Query: `tenant_id`, `robot_id`, `status` |
-| GET | `/api/v1/tasks/{id}` | Get task |
-| POST | `/api/v1/tasks` | Create task |
-| POST | `/api/v1/tasks/{id}/cancel` | Cancel task |
+| GET | `/v1/tasks` | List tasks. Query: `tenant_id`, `robot_id`, `status` |
+| GET | `/v1/tasks/{id}` | Get task |
+| POST | `/v1/tasks` | Create task |
+| POST | `/v1/tasks/{id}/cancel` | Cancel task |
 
 ### Scenarios
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/scenarios` | List scenarios |
-| GET | `/api/v1/scenarios/{id}` | Get scenario |
-| POST | `/api/v1/scenarios` | Create scenario (admin) |
-| PUT | `/api/v1/scenarios/{id}` | Update scenario (admin) |
-| DELETE | `/api/v1/scenarios/{id}` | Delete scenario (admin) |
+| GET | `/v1/scenarios` | List scenarios |
+| GET | `/v1/scenarios/{id}` | Get scenario |
+| POST | `/v1/scenarios` | Create scenario (admin) |
+| PUT | `/v1/scenarios/{id}` | Update scenario (admin) |
+| DELETE | `/v1/scenarios/{id}` | Delete scenario (admin) |
+| POST | `/v1/scenarios/mall_assistant/start` | Start Mall Assistant scenario |
+| POST | `/v1/scenarios/mall_assistant/visitor-request` | Submit visitor request (store name) to Mall Assistant |
 
 ### Workflows
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/workflows` | List workflows |
-| POST | `/api/v1/workflows/{id}/run` | Run workflow |
-| GET | `/api/v1/workflow-runs` | List workflow runs |
-| GET | `/api/v1/workflow-runs/{id}` | Get workflow run |
+| GET | `/v1/workflows` | List workflows |
+| POST | `/v1/workflows/{id}/run` | Run workflow |
+| GET | `/v1/workflow-runs` | List workflow runs |
+| GET | `/v1/workflow-runs/{id}` | Get workflow run |
 
 ### Zones
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/zones` | List zones |
-| GET | `/api/v1/zones/{id}` | Get zone status |
+| GET | `/v1/zones` | List zones |
+| GET | `/v1/zones/{id}` | Get zone status |
 
 ### Tenants
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/tenants` | List tenants |
-| GET | `/api/v1/tenants/{id}` | Get tenant |
-| GET | `/api/v1/tenants/{id}/robots` | List robots for tenant |
-| POST | `/api/v1/tenants` | Create tenant (admin) |
-| PUT | `/api/v1/tenants/{id}` | Update tenant (admin) |
-| DELETE | `/api/v1/tenants/{id}` | Delete tenant (admin) |
+| GET | `/v1/tenants` | List tenants |
+| GET | `/v1/tenants/{id}` | Get tenant |
+| GET | `/v1/tenants/{id}/robots` | List robots for tenant |
+| POST | `/v1/tenants` | Create tenant (admin) |
+| PUT | `/v1/tenants/{id}` | Update tenant (admin) |
+| DELETE | `/v1/tenants/{id}` | Delete tenant (admin) |
 
 ### Webhooks
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/webhooks` | List webhooks (admin) |
-| POST | `/api/v1/webhooks` | Create webhook (admin) |
-| GET | `/api/v1/webhooks/{id}` | Get webhook (admin) |
-| PUT | `/api/v1/webhooks/{id}` | Update webhook (admin) |
-| DELETE | `/api/v1/webhooks/{id}` | Delete webhook (admin) |
+| GET | `/v1/webhooks` | List webhooks (admin) |
+| POST | `/v1/webhooks` | Create webhook (admin) |
+| GET | `/v1/webhooks/{id}` | Get webhook (admin) |
+| PUT | `/v1/webhooks/{id}` | Update webhook (admin) |
+| DELETE | `/v1/webhooks/{id}` | Delete webhook (admin) |
 
 ### Analytics
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/analytics/robots` | List robot analytics summaries. Query: `from`, `to` |
-| GET | `/api/v1/analytics/robots/{id}/summary` | Get robot analytics summary |
+| GET | `/v1/analytics/robots` | List robot analytics summaries. Query: `from`, `to` |
+| GET | `/v1/analytics/robots/{id}/summary` | Get robot analytics summary |
 
 ### Audit
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/audit` | List audit log. Query: `tenant_id`, `robot_id`, `actor`, `action`, `from`, `to`, `limit`, `offset` |
+| GET | `/v1/audit` | List audit log. Query: `tenant_id`, `robot_id`, `actor`, `action`, `from`, `to`, `limit`, `offset` |
 
 ### Edges
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/edges` | List edges |
-| GET | `/api/v1/edges/{id}` | Get edge |
-| POST | `/api/v1/edges/{id}/heartbeat` | Edge heartbeat (no auth) |
+| GET | `/v1/edges` | List edges |
+| GET | `/v1/edges/{id}` | Get edge |
+| POST | `/v1/edges/{id}/heartbeat` | Edge heartbeat (no auth) |
 
 ### Telemetry
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/telemetry/stream` | SSE telemetry stream. Query: `robot_id`, `robot_ids`, `tenant_id`. Reconnect: send `Last-Event-ID` header. |
+| GET | `/v1/telemetry/stream` | SSE telemetry stream. Query: `robot_id`, `robot_ids`, `tenant_id`. Reconnect: send `Last-Event-ID` header. |
 
 ### Events Stream
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/v1/events/stream` | SSE stream of platform events: `robot_online`, `task_completed`, `safe_stop`. Each event: `event: <type>`, `data: { event, timestamp, data }`. |
+| GET | `/v1/events/stream` | SSE stream of platform events: `robot_online`, `task_completed`, `safe_stop`. Each event: `event: <type>`, `data: { event, timestamp, data }`. |
 
 ### Cognitive (AI Services)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/v1/cognitive/navigate` | Path planning (robot_id, from, to, map_id) |
-| POST | `/api/v1/cognitive/recognize` | Object/person recognition (robot_id, sensor_data) |
-| POST | `/api/v1/cognitive/plan` | Task planning (task_type, context) |
+| POST | `/v1/cognitive/navigate` | Path planning (robot_id, from, to, map_id) |
+| POST | `/v1/cognitive/recognize` | Object/person recognition (robot_id, sensor_data) |
+| POST | `/v1/cognitive/plan` | Task planning (task_type, context) |
+| POST | `/v1/cognitive/transcribe` | Speech-to-text (robot_id, audio_base64, language) |
+| POST | `/v1/cognitive/synthesize` | Text-to-speech (robot_id, text, language) |
+| POST | `/v1/cognitive/understand-intent` | Intent extraction from user text (robot_id, text, language, context) |
+| POST | `/v1/cognitive/process-audio` | Full speech pipeline: audio -> STT -> intent -> conversation -> TTS (robot_id, audio_base64). Returns transcript, language, intent, parameters, response, audio_base64. |
 
 ## Health and Metrics
 

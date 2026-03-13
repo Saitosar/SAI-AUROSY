@@ -56,6 +56,18 @@ All require authentication and tenant isolation (robot must belong to tenant).
 
 `pkg/control-plane/speech/pipeline.go` — Full flow: Transcribe → UnderstandIntent → ConversationCatalog.GetByIntent → ResolveResponse → Synthesize → Publish.
 
+#### Speech Pipeline Integration
+
+The pipeline is wired into the Control Plane with two entry points:
+
+1. **REST API** — `POST /v1/cognitive/process-audio` accepts `robot_id` and `audio_base64`. Runs the full pipeline and returns `transcript`, `language`, `intent`, `parameters`, `response`, `audio_base64`. Used by the Operator Console Speech Test UI for browser-based testing.
+
+2. **NATS subscriber** — Subscribes to `audio.robots.*.input`. When a robot adapter publishes raw audio, the pipeline runs automatically. TTS output is published to `audio.robots.{id}.output` for the adapter to play on the robot speaker.
+
+**Configuration for real STT/TTS:** Use `COGNITIVE_PROVIDER=http` with `COGNITIVE_HTTP_TRANSCRIBE_URL`, `COGNITIVE_HTTP_SYNTHESIZE_URL`, and `COGNITIVE_HTTP_INTENT_URL`. With the mock provider, Transcribe and Synthesize return empty; the pipeline flow can still be verified.
+
+**Default conversations:** Migration `000025_seed_conversations` and in-memory seed add `find_store`, `greeting`, `goodbye` with shared templates.
+
 ### 8. Language Support
 
 `pkg/control-plane/speech/language.go` — Supported: uz, en, ru, az, ar. Tier 1: uz, en, ru. Tier 2: az, ar. Low-confidence threshold for "ask repeat" flow.
@@ -74,7 +86,17 @@ All require authentication and tenant isolation (robot must belong to tenant).
 
 ## External Providers
 
-Speech providers (ElevenLabs, Azure) are integrated via HTTP. Configure URLs to point to external services or proxy endpoints that wrap vendor SDKs.
+Speech providers (ElevenLabs, Azure, Google Gemini) are integrated via HTTP. Configure URLs to point to external services or proxy endpoints that wrap vendor SDKs.
+
+### Gemini Adapter
+
+The [Gemini Adapter](../integration/gemini-adapter.md) implements the Cognitive Gateway contract using Google Gemini API:
+
+- **STT** — Gemini Audio Understanding (`gemini-2.0-flash`)
+- **TTS** — Gemini 2.5 Flash TTS (`gemini-2.5-flash-preview-tts`)
+- **Intent** — Gemini generateContent with structured JSON
+
+Set `GEMINI_API_KEY` in `.env` and run `docker compose up -d`. The default `docker-compose.yml` wires the adapter when `COGNITIVE_PROVIDER=http`.
 
 ## Future Work
 
@@ -87,4 +109,5 @@ Speech providers (ElevenLabs, Azure) are integrated via HTTP. Configure URLs to 
 
 - [Speech Layer Architecture](../architecture/speech-layer.md)
 - [Cognitive Gateway](../architecture/cognitive-gateway.md)
+- [Gemini Adapter](../integration/gemini-adapter.md)
 - [Robot Adapter Contract](../adapters/robot-adapter-contract.md)

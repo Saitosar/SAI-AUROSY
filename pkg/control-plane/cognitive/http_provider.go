@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -21,10 +22,11 @@ type HTTPGateway struct {
 	navigateURL        string
 	recognizeURL       string
 	planURL            string
-	transcribeURL      string
-	synthesizeURL      string
+	transcribeURL       string
+	synthesizeURL       string
 	understandIntentURL string
-	apiKey             string
+	translateURL        string
+	apiKey              string
 }
 
 // NewHTTPGateway creates an HTTP gateway from config.
@@ -43,6 +45,7 @@ func NewHTTPGateway(cfg Config) (Gateway, error) {
 		transcribeURL:       cfg.HTTP.TranscribeURL,
 		synthesizeURL:       cfg.HTTP.SynthesizeURL,
 		understandIntentURL: cfg.HTTP.UnderstandIntentURL,
+		translateURL:        cfg.HTTP.TranslateURL,
 		apiKey:              apiKey,
 	}, nil
 }
@@ -69,6 +72,15 @@ func (h *HTTPGateway) post(ctx context.Context, url string, reqBody, resBody int
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if len(body) > 0 {
+			var errBody struct {
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(body, &errBody) == nil && errBody.Error != "" {
+				return fmt.Errorf("%s", errBody.Error)
+			}
+		}
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	dec := json.NewDecoder(resp.Body)
@@ -124,6 +136,18 @@ func (h *HTTPGateway) Synthesize(ctx context.Context, req SynthesizeRequest) (*S
 func (h *HTTPGateway) UnderstandIntent(ctx context.Context, req UnderstandIntentRequest) (*IntentResult, error) {
 	var res IntentResult
 	if err := h.post(ctx, h.understandIntentURL, req, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// Translate calls the configured translation service.
+func (h *HTTPGateway) Translate(ctx context.Context, req TranslateRequest) (*TranslateResult, error) {
+	if h.translateURL == "" {
+		return &TranslateResult{Text: req.Text}, nil
+	}
+	var res TranslateResult
+	if err := h.post(ctx, h.translateURL, req, &res); err != nil {
 		return nil, err
 	}
 	return &res, nil

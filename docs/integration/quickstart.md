@@ -13,7 +13,7 @@ This guide walks through a minimal integration: list robots, create a task, and 
 **Option A — Via API** (when you already have an admin key):
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/api-keys \
+curl -X POST http://localhost:8080/v1/api-keys \
   -H "X-API-Key: <your-admin-key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -47,21 +47,21 @@ For API testing without real robots, use the **sandbox** tenant. It includes dem
 
 ```bash
 # Create a sandbox API key (admin)
-curl -X POST http://localhost:8080/api/v1/api-keys \
+curl -X POST http://localhost:8080/v1/api-keys \
   -H "X-API-Key: <admin-key>" \
   -H "Content-Type: application/json" \
   -d '{"name": "Sandbox Test", "roles": "operator", "tenant_id": "sandbox"}'
 
 # List sandbox robots
 curl -H "X-API-Key: <sandbox-key>" \
-  "http://localhost:8080/api/v1/robots?tenant_id=sandbox"
+  "http://localhost:8080/v1/robots?tenant_id=sandbox"
 ```
 
 ## Step 2: List Robots
 
 ```bash
 curl -H "X-API-Key: sk-integration-abc123" \
-  http://localhost:8080/api/v1/robots
+  http://localhost:8080/v1/robots
 ```
 
 Response:
@@ -81,7 +81,7 @@ Response:
 ## Step 3: Create a Task
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/tasks \
+curl -X POST http://localhost:8080/v1/tasks \
   -H "X-API-Key: sk-integration-abc123" \
   -H "Content-Type: application/json" \
   -d '{
@@ -108,7 +108,7 @@ Response:
 To receive `task_completed` events, create a webhook (requires administrator key):
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/webhooks \
+curl -X POST http://localhost:8080/v1/webhooks \
   -H "X-API-Key: <admin-key>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -126,7 +126,7 @@ For real-time robot telemetry:
 ```bash
 curl -H "X-API-Key: sk-integration-abc123" \
   -H "Accept: text/event-stream" \
-  http://localhost:8080/api/v1/telemetry/stream
+  http://localhost:8080/v1/telemetry/stream
 ```
 
 This returns Server-Sent Events (SSE) with telemetry samples.
@@ -135,14 +135,14 @@ This returns Server-Sent Events (SSE) with telemetry samples.
 
 | Action | Endpoint | Method |
 |--------|----------|--------|
-| Create API key | `/api/v1/api-keys` | POST |
-| List API keys | `/api/v1/api-keys` | GET |
-| List robots | `/api/v1/robots` | GET |
-| Get robot | `/api/v1/robots/:id` | GET |
-| Create task | `/api/v1/tasks` | POST |
-| Cancel task | `/api/v1/tasks/:id/cancel` | POST |
-| List tasks | `/api/v1/tasks` | GET |
-| Telemetry stream | `/api/v1/telemetry/stream` | GET |
-| Create webhook | `/api/v1/webhooks` | POST (admin) |
+| Create API key | `/v1/api-keys` | POST |
+| List API keys | `/v1/api-keys` | GET |
+| List robots | `/v1/robots` | GET |
+| Get robot | `/v1/robots/:id` | GET |
+| Create task | `/v1/tasks` | POST |
+| Cancel task | `/v1/tasks/:id/cancel` | POST |
+| List tasks | `/v1/tasks` | GET |
+| Telemetry stream | `/v1/telemetry/stream` | GET |
+| Create webhook | `/v1/webhooks` | POST (admin) |
 
 See [API Reference](api-reference.md) for the full endpoint list.

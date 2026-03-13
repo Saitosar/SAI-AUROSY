@@ -92,6 +92,11 @@ func (m *MockGateway) UnderstandIntent(ctx context.Context, req UnderstandIntent
 	return &IntentResult{Intent: "", Parameters: nil, Confidence: 0}, nil
 }
 
+// Translate returns text as-is (mock).
+func (m *MockGateway) Translate(ctx context.Context, req TranslateRequest) (*TranslateResult, error) {
+	return &TranslateResult{Text: req.Text}, nil
+}
+
 // extractStoreName tries to extract a store name from phrases like "where is X", "I want X", "find X".
 var storeNamePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)where\s+is\s+(\w+)`),

@@ -34,6 +34,7 @@ No additional configuration. Secrets are read from environment variables:
 - `REGISTRY_DB_DSN`
 - `COGNITIVE_HTTP_API_KEY`
 - `EDGE_API_KEY`
+- `GEMINI_API_KEY` — used by the Gemini Adapter (see [Gemini Adapter](../integration/gemini-adapter.md))
 
 ## Vault Provider
 

@@ -83,6 +83,13 @@
         "tags": ["cognitive"]
       }
     },
+    "/cognitive/process-audio": {
+      "post": {
+        "summary": "Full speech pipeline (audio)",
+        "description": "Run full pipeline: Transcribe -> UnderstandIntent -> ConversationCatalog -> Synthesize. Body: robot_id, audio_base64. Returns: transcript, language, intent, parameters, response, audio_base64.",
+        "tags": ["cognitive"]
+      }
+    },
     "/conversations": {
       "get": {"summary": "List conversations", "description": "Intent-to-response mappings. Operator: tenant-filtered.", "tags": ["conversations"]},
       "post": {"summary": "Create conversation (admin)", "tags": ["conversations"]}

@@ -1,20 +1,88 @@
 {
   "scenario_name": "happy_path",
   "status": "FAIL",
-  "start_time": "2026-03-10T03:50:29.55015+05:00",
-  "end_time": "2026-03-10T03:52:34.551331+05:00",
-  "duration_ms": 125000,
-  "assertions_passed": 2,
-  "assertions_failed": 2,
+  "start_time": "2026-03-10T10:15:22.8042+05:00",
+  "end_time": "2026-03-10T10:30:48.90019+05:00",
+  "duration_ms": 125040,
+  "assertions_passed": 3,
+  "assertions_failed": 1,
   "final_robot_state": "IDLE",
   "emitted_events": [
+    {
+      "type": "mall_store_resolved",
+      "payload": {
+        "mall_id": "default",
+        "node_id": "node-nike",
+        "store_name": "Nike"
+      },
+      "timestamp": "2026-03-10T10:15:22.804585+05:00"
+    },
+    {
+      "type": "mall_route_calculated",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "route_length": 4,
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T10:15:22.804586+05:00"
+    },
+    {
+      "type": "navigation_started",
+      "payload": {
+        "robot_id": "sim-001",
+        "store": "Nike",
+        "task_id": "45c800f1-3d41-4294-b462-ac1f460fc0b8"
+      },
+      "timestamp": "2026-03-10T10:15:22.804586+05:00"
+    },
+    {
+      "type": "mall_navigation_requested",
+      "payload": {
+        "estimated_distance": 21.299999999999997,
+        "from_node": "node-standby",
+        "mall_id": "default",
+        "robot_id": "sim-001",
+        "route_length": 4,
+        "store_name": "Nike",
+        "to_node": "node-nike"
+      },
+      "timestamp": "2026-03-10T10:15:22.804586+05:00"
+    },
+    {
+      "type": "navigation_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "store": "Nike",
+        "task_id": "45c800f1-3d41-4294-b462-ac1f460fc0b8"
+      },
+      "timestamp": "2026-03-10T10:15:52.749428+05:00"
+    },
+    {
+      "type": "visitor_interaction_finished",
+      "payload": {
+        "robot_id": "sim-001",
+        "task_id": "45c800f1-3d41-4294-b462-ac1f460fc0b8"
+      },
+      "timestamp": "2026-03-10T10:15:52.74961+05:00"
+    },
+    {
+      "type": "task_completed",
+      "payload": {
+        "robot_id": "sim-001",
+        "status": "completed",
+        "task_id": "45c800f1-3d41-4294-b462-ac1f460fc0b8"
+      },
+      "timestamp": "2026-03-10T10:15:52.749792+05:00"
+    },
     {
       "type": "visitor_interaction_started",
       "payload": {
         "robot_id": "sim-001",
-        "task_id": "c4829ad9-08ff-4ba7-acd3-bab6976443a4"
+        "task_id": "3fd1751b-4e7c-464a-9542-d5f3fd869e08"
       },
-      "timestamp": "2026-03-10T03:50:31.549659+05:00"
+      "timestamp": "2026-03-10T10:15:54.745855+05:00"
     }
   ],
   "results": [
@@ -29,12 +97,12 @@
     },
     {
       "AssertionType": "task_status",
-      "Passed": false,
-      "Message": "task c4829ad9-08ff-4ba7-acd3-bab6976443a4: expected status completed, got running",
+      "Passed": true,
+      "Message": "task 45c800f1-3d41-4294-b462-ac1f460fc0b8 has status completed",
       "Details": {
-        "actual": "running",
+        "actual": "completed",
         "expected": "completed",
-        "task_id": "c4829ad9-08ff-4ba7-acd3-bab6976443a4"
+        "task_id": "45c800f1-3d41-4294-b462-ac1f460fc0b8"
       }
     },
     {
@@ -43,6 +111,13 @@
       "Message": "event mall_store_resolved not found in expected order (expected: [visitor_interaction_started mall_store_resolved navigation_started navigation_completed visitor_interaction_finished])",
       "Details": {
         "collected": [
+          "mall_store_resolved",
+          "mall_route_calculated",
+          "navigation_started",
+          "mall_navigation_requested",
+          "navigation_completed",
+          "visitor_interaction_finished",
+          "task_completed",
           "visitor_interaction_started"
         ],
         "expected": [
@@ -62,6 +137,13 @@
       "Details": {
         "field": "distance_to_target"
       }
+    }
+  ],
+  "contract_violations": [
+    {
+      "Category": "telemetry",
+      "Field": "target_position",
+      "Message": "required telemetry field missing or empty"
     }
   ]
 }

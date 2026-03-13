@@ -92,3 +92,15 @@ type IntentResult struct {
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 	Confidence float64                `json:"confidence"`
 }
+
+// TranslateRequest is the input for text translation.
+type TranslateRequest struct {
+	RobotID         string `json:"robot_id"`
+	Text            string `json:"text"`
+	TargetLanguage  string `json:"target_language"` // uz, en, ru, az, ar
+}
+
+// TranslateResult is the output of translation.
+type TranslateResult struct {
+	Text string `json:"text"`
+}

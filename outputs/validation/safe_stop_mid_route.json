@@ -1,8 +1,8 @@
 {
   "scenario_name": "safe_stop_mid_route",
   "status": "FAIL",
-  "start_time": "2026-03-10T03:49:39.336841+05:00",
-  "end_time": "2026-03-10T03:50:16.340864+05:00",
+  "start_time": "2026-03-10T10:51:07.016701+05:00",
+  "end_time": "2026-03-10T10:51:44.018815+05:00",
   "duration_ms": 37002,
   "assertions_passed": 1,
   "assertions_failed": 1,
@@ -15,7 +15,7 @@
         "node_id": "node-nike",
         "store_name": "Nike"
       },
-      "timestamp": "2026-03-10T03:49:39.337577+05:00"
+      "timestamp": "2026-03-10T10:51:07.016994+05:00"
     },
     {
       "type": "mall_route_calculated",
@@ -26,16 +26,16 @@
         "route_length": 4,
         "to_node": "node-nike"
       },
-      "timestamp": "2026-03-10T03:49:39.337681+05:00"
+      "timestamp": "2026-03-10T10:51:07.017382+05:00"
     },
     {
       "type": "navigation_started",
       "payload": {
         "robot_id": "sim-001",
         "store": "Nike",
-        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+        "task_id": "67005f12-45a5-4424-9766-bfc9f1d3387b"
       },
-      "timestamp": "2026-03-10T03:49:39.337683+05:00"
+      "timestamp": "2026-03-10T10:51:07.017383+05:00"
     },
     {
       "type": "mall_navigation_requested",
@@ -48,41 +48,41 @@
         "store_name": "Nike",
         "to_node": "node-nike"
       },
-      "timestamp": "2026-03-10T03:49:39.337715+05:00"
+      "timestamp": "2026-03-10T10:51:07.017428+05:00"
     },
     {
       "type": "navigation_completed",
       "payload": {
         "robot_id": "sim-001",
         "store": "Nike",
-        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+        "task_id": "67005f12-45a5-4424-9766-bfc9f1d3387b"
       },
-      "timestamp": "2026-03-10T03:50:09.340541+05:00"
+      "timestamp": "2026-03-10T10:51:37.018503+05:00"
     },
     {
       "type": "visitor_interaction_finished",
       "payload": {
         "robot_id": "sim-001",
-        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+        "task_id": "67005f12-45a5-4424-9766-bfc9f1d3387b"
       },
-      "timestamp": "2026-03-10T03:50:09.340556+05:00"
+      "timestamp": "2026-03-10T10:51:37.018506+05:00"
     },
     {
       "type": "task_completed",
       "payload": {
         "robot_id": "sim-001",
         "status": "completed",
-        "task_id": "c52116ea-ca40-4134-9684-f14a18d7f947"
+        "task_id": "67005f12-45a5-4424-9766-bfc9f1d3387b"
       },
-      "timestamp": "2026-03-10T03:50:09.340733+05:00"
+      "timestamp": "2026-03-10T10:51:37.018758+05:00"
     },
     {
       "type": "visitor_interaction_started",
       "payload": {
         "robot_id": "sim-001",
-        "task_id": "55189ce2-8fbb-4a61-8c8c-495358146fee"
+        "task_id": "27b755d1-0b1b-47e1-ab6e-07ace1016cb0"
       },
-      "timestamp": "2026-03-10T03:50:11.310731+05:00"
+      "timestamp": "2026-03-10T10:51:38.909864+05:00"
     }
   ],
   "results": [
@@ -95,12 +95,19 @@
     {
       "AssertionType": "task_status",
       "Passed": false,
-      "Message": "task f374fdd2-23a1-46ae-9b0d-cdc669b45e82: expected status failed, got completed",
+      "Message": "task b0e1ab92-a58d-4d02-96bd-b0f36e27b995: expected status failed, got pending",
       "Details": {
-        "actual": "completed",
+        "actual": "pending",
         "expected": "failed",
-        "task_id": "f374fdd2-23a1-46ae-9b0d-cdc669b45e82"
+        "task_id": "b0e1ab92-a58d-4d02-96bd-b0f36e27b995"
       }
+    }
+  ],
+  "contract_violations": [
+    {
+      "Category": "telemetry",
+      "Field": "target_position",
+      "Message": "required telemetry field missing or empty"
     }
   ]
 }

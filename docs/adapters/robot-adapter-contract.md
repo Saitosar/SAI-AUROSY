@@ -57,9 +57,14 @@ Published to `telemetry.robots.{robot_id}`.
   "joint_states": [
     { "name": "joint_1", "position": 0.0, "velocity": 0.0, "effort": 0.0 }
   ],
-  "current_task": "idle"
+  "current_task": "idle",
+  "position": "0,0,0",
+  "target_position": "5,3,0",
+  "distance_to_target": 5.83
 }
 ```
+
+For navigation scenarios (Mall Assistant), `position`, `target_position`, and `distance_to_target` are required for arrival detection.
 
 ### Fields
 
@@ -73,6 +78,11 @@ Published to `telemetry.robots.{robot_id}`.
 | `imu` | object | No | IMU data (orientation, angular_velocity) |
 | `joint_states` | array | No | Per-joint state |
 | `current_task` | string | Yes | Heuristic: `idle`, `zero`, `stand`, `walk` |
+| `position` | string | No* | Format `"x,y,z"` in meters. Required for navigation/arrival detection. |
+| `target_position` | string | No* | Format `"x,y,z"`. Required when navigating. |
+| `distance_to_target` | number | No* | Meters to target. Required for arrival detection. Nil if not navigating. |
+
+\* Required for Mall Assistant / navigation scenarios. Adapters without position sensing cannot support navigation.
 
 ### JointStateData
 
@@ -124,6 +134,8 @@ Received from `commands.robots.{robot_id}`.
 | `stand_mode` | Standing pose | None |
 | `walk_mode` | Walking mode | None |
 | `cmd_vel` | Velocity command | `{"linear_x": float, "linear_y": float, "angular_z": float}` |
+| `navigate_to` | Start navigation toward target (requires `navigation` capability) | `{"target_coordinates": "x,y,z", "store_name": "...", "destination_node_id": "...", "route": [...], "estimated_distance": float}` |
+| `speak` | TTS output (requires `speech` capability) | `{"text": "..."}`. Audio may be sent via `audio.robots.{id}.output` |
 
 ### cmd_vel Payload
 

@@ -1,0 +1,18 @@
+# Optional override for Cocoon Cognitive Provider.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.cocoon.yml up -d
+#
+# Prerequisites:
+# - Cocoon client must be running and reachable. Build from source:
+#   https://github.com/TelegramMessenger/cocoon
+# - Run Cocoon client separately (or add as service when Docker image is available).
+# - Set COGNITIVE_COCOON_CLIENT_URL to the client address (e.g. http://host.docker.internal:10000
+#   if client runs on host).
+
+services:
+  control-plane:
+    environment:
+      COGNITIVE_PROVIDER: cocoon
+      COGNITIVE_COCOON_CLIENT_URL: http://host.docker.internal:10000
+      COGNITIVE_COCOON_MODEL: Qwen/Qwen3-32B
+      COGNITIVE_COCOON_TIMEOUT_SEC: "30"
+      COGNITIVE_COCOON_MAX_TOKENS: "512"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 const API_BASE = '/api/v1'
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4222'
@@ -118,7 +118,7 @@ function Toast({ toasts, onDismiss }) {
 }
 
 function TaskRow({ task, scenarios, onCancel, readOnly }) {
-  const scenario = scenarios.find((s) => s.id === task.scenario_id)
+  const scenario = (scenarios || []).find((s) => s.id === task.scenario_id)
   const scenarioName = scenario?.name ?? task.scenario_id
   const canCancel = !readOnly && (task.status === 'pending' || task.status === 'running')
   return (
@@ -1138,7 +1138,7 @@ function formatRelativeTime(ts) {
   return d.toLocaleString()
 }
 
-function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, showTenant, readOnly, mallAssistantTask, mallAssistantStatus, onStartMallAssistant, onVisitorRequest }) {
+function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, showTenant, readOnly, mallAssistantTask, mallAssistantStatus, onStartMallAssistant, onVisitorRequest, onProcessAudio }) {
   const t = telemetry[robot.id] || {}
   const online = t.online ?? false
   const mockMode = t.mock_mode ?? false
@@ -1147,6 +1147,21 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, s
   const currentTask = t.current_task || '-'
   const [visitorText, setVisitorText] = useState('')
   const [visitorSubmitting, setVisitorSubmitting] = useState(false)
+  const hasSpeech = robot.capabilities?.includes('speech')
+  const [speechMode, setSpeechMode] = useState('record')
+  const [isRecording, setIsRecording] = useState(false)
+  const [mediaRecorder, setMediaRecorder] = useState(null)
+  const [speechResult, setSpeechResult] = useState(null)
+  const [speechProcessing, setSpeechProcessing] = useState(false)
+  const [streamActive, setStreamActive] = useState(false)
+  const [streamTranscriptions, setStreamTranscriptions] = useState([])
+  const [streamError, setStreamError] = useState(null)
+  const streamWsRef = useRef(null)
+  const streamAudioCtxRef = useRef(null)
+  const streamMediaStreamRef = useRef(null)
+  const streamScheduledSourcesRef = useRef([])
+  const streamNextPlayTimeRef = useRef(0)
+  const streamActiveRef = useRef(false)
   const jointStates = t.joint_states || []
   const [linearX, setLinearX] = useState(0)
   const [linearY, setLinearY] = useState(0)
@@ -1275,6 +1290,279 @@ function RobotCard({ robot, telemetry, onCommand, onSafeStop, lastCommandSent, s
               {visitorSubmitting ? 'Sending...' : 'Send'}
             </button>
           </div>
+        </div>
+      )}
+      {hasSpeech && onProcessAudio && !readOnly && (
+        <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6, textTransform: 'uppercase' }}>Speech Test</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setSpeechMode('record')}
+              style={{
+                ...buttonBase,
+                background: speechMode === 'record' ? '#334155' : 'transparent',
+                color: speechMode === 'record' ? '#e2e8f0' : '#64748b',
+                border: '1px solid #334155',
+              }}
+            >
+              Record
+            </button>
+            <button
+              onClick={() => setSpeechMode('stream')}
+              style={{
+                ...buttonBase,
+                background: speechMode === 'stream' ? '#334155' : 'transparent',
+                color: speechMode === 'stream' ? '#e2e8f0' : '#64748b',
+                border: '1px solid #334155',
+              }}
+            >
+              Stream
+            </button>
+          </div>
+          {speechMode === 'record' && (
+            <>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Speak for at least 1 second</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={async () => {
+                    if (isRecording && mediaRecorder) {
+                      mediaRecorder.stop()
+                      setMediaRecorder(null)
+                      setIsRecording(false)
+                      return
+                    }
+                    try {
+                      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                        ? 'audio/webm;codecs=opus'
+                        : 'audio/webm'
+                      const recorder = new MediaRecorder(stream, { mimeType })
+                      const chunks = []
+                      recorder.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data)
+                      recorder.onstop = async () => {
+                        stream.getTracks().forEach((t) => t.stop())
+                        const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' })
+                        if (blob.size < 500) {
+                          setSpeechResult({ error: 'Recording too short. Speak for at least 1 second.' })
+                          setSpeechProcessing(false)
+                          return
+                        }
+                        const reader = new FileReader()
+                        reader.onloadend = async () => {
+                          const base64 = reader.result?.split(',')[1]
+                          if (!base64) return
+                          setSpeechProcessing(true)
+                          setSpeechResult(null)
+                          try {
+                            const res = await onProcessAudio(robot.id, base64)
+                            setSpeechResult(res)
+                          } catch (err) {
+                            setSpeechResult({ error: err?.message || 'Failed' })
+                          } finally {
+                            setSpeechProcessing(false)
+                          }
+                        }
+                        reader.readAsDataURL(blob)
+                      }
+                      recorder.start(250)
+                      setMediaRecorder(recorder)
+                      setIsRecording(true)
+                    } catch (err) {
+                      alert('Microphone access denied: ' + (err?.message || err))
+                    }
+                  }}
+                  disabled={speechProcessing}
+                  style={{ ...buttonBase, background: isRecording ? '#dc2626' : '#059669', color: 'white' }}
+                >
+                  {speechProcessing ? 'Processing...' : isRecording ? 'Stop' : 'Record'}
+                </button>
+                {speechResult?.audio_base64 && (
+                  <button
+                    onClick={() => {
+                      try {
+                        const audio = new Audio('data:audio/wav;base64,' + speechResult.audio_base64)
+                        audio.play().catch(() => {
+                          const a = document.createElement('a')
+                          a.href = 'data:audio/wav;base64,' + speechResult.audio_base64
+                          a.download = 'response.wav'
+                          a.click()
+                        })
+                      } catch {
+                        alert('Cannot play audio')
+                      }
+                    }}
+                    style={{ ...buttonBase, background: '#0369a1', color: 'white' }}
+                  >
+                    Play
+                  </button>
+                )}
+              </div>
+              {speechResult && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#e2e8f0' }}>
+                  {speechResult.error ? (
+                    <span style={{ color: '#fca5a5' }}>{speechResult.error}</span>
+                  ) : (speechResult.transcript || speechResult.response || speechResult.intent) ? (
+                    <>
+                      {speechResult.transcript && <div>Transcript: {speechResult.transcript}</div>}
+                      {speechResult.language && <div>Language: {speechResult.language}</div>}
+                      {speechResult.intent && <div>Intent: {speechResult.intent}</div>}
+                      {speechResult.response && <div>Response: {speechResult.response}</div>}
+                    </>
+                  ) : (
+                    <span style={{ color: '#94a3b8' }}>No speech detected. Try speaking louder or longer.</span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          {speechMode === 'stream' && (
+            <>
+              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Real-time voice with Gemini Live</div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={async () => {
+                    if (streamActive) {
+                      if (streamWsRef.current) {
+                        streamWsRef.current.close()
+                        streamWsRef.current = null
+                      }
+                      if (streamMediaStreamRef.current) {
+                        streamMediaStreamRef.current.getTracks().forEach((t) => t.stop())
+                        streamMediaStreamRef.current = null
+                      }
+                      if (streamAudioCtxRef.current) {
+                        streamScheduledSourcesRef.current.forEach((s) => {
+                          try { s.stop() } catch (_) {}
+                        })
+                        streamScheduledSourcesRef.current = []
+                        streamNextPlayTimeRef.current = 0
+                      }
+                      streamActiveRef.current = false
+                      setStreamActive(false)
+                      setStreamError(null)
+                      return
+                    }
+                    streamActiveRef.current = true
+                    setStreamError(null)
+                    setStreamTranscriptions([])
+                    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+                    const wsUrl = `${protocol}//${window.location.host}/ws/live`
+                    try {
+                      const ws = new WebSocket(wsUrl)
+                      streamWsRef.current = ws
+                      ws.binaryType = 'arraybuffer'
+                      ws.onerror = () => setStreamError('WebSocket error')
+                      ws.onclose = () => {
+                        streamActiveRef.current = false
+                        setStreamActive(false)
+                        if (streamMediaStreamRef.current) {
+                          streamMediaStreamRef.current.getTracks().forEach((t) => t.stop())
+                          streamMediaStreamRef.current = null
+                        }
+                      }
+                      ws.onopen = async () => {
+                        streamActiveRef.current = true
+                        setStreamActive(true)
+                        try {
+                          const ctx = new (window.AudioContext || window.webkitAudioContext)()
+                          streamAudioCtxRef.current = ctx
+                          await ctx.audioWorklet.addModule('/pcm-processor.js')
+                          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                          streamMediaStreamRef.current = stream
+                          const source = ctx.createMediaStreamSource(stream)
+                          const worklet = new AudioWorkletNode(ctx, 'pcm-processor')
+                          worklet.port.onmessage = (e) => {
+                            if (!streamActiveRef.current || !ws || ws.readyState !== WebSocket.OPEN) return
+                            const float32 = e.data
+                            const inRate = ctx.sampleRate
+                            const outRate = 16000
+                            let downsampled = float32
+                            if (inRate !== outRate) {
+                              const ratio = inRate / outRate
+                              const newLen = Math.round(float32.length / ratio)
+                              downsampled = new Float32Array(newLen)
+                              for (let i = 0; i < newLen; i++) {
+                                const srcIdx = i * ratio
+                                const j = Math.floor(srcIdx)
+                                const frac = srcIdx - j
+                                downsampled[i] = (1 - frac) * (float32[j] ?? 0) + frac * (float32[j + 1] ?? 0)
+                              }
+                            }
+                            const int16 = new Int16Array(downsampled.length)
+                            for (let i = 0; i < downsampled.length; i++) {
+                              const s = Math.max(-1, Math.min(1, downsampled[i]))
+                              int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+                            }
+                            ws.send(int16.buffer)
+                          }
+                          source.connect(worklet)
+                          const muteGain = ctx.createGain()
+                          muteGain.gain.value = 0
+                          worklet.connect(muteGain)
+                          muteGain.connect(ctx.destination)
+                        } catch (err) {
+                          setStreamError(err?.message || 'Failed to start audio')
+                          ws.close()
+                        }
+                      }
+                      ws.onmessage = (ev) => {
+                        if (typeof ev.data === 'string') {
+                          try {
+                            const msg = JSON.parse(ev.data)
+                            if (msg.type && (msg.type === 'user' || msg.type === 'gemini')) {
+                              const text = msg.text || ''
+                              setStreamTranscriptions((prev) => {
+                                const last = prev[prev.length - 1]
+                                if (last && last.type === msg.type) {
+                                  return [...prev.slice(0, -1), { type: msg.type, text: last.text + text }]
+                                }
+                                return [...prev, { type: msg.type, text }]
+                              })
+                            }
+                          } catch (_) {}
+                        } else if (ev.data instanceof ArrayBuffer) {
+                          const ctx = streamAudioCtxRef.current
+                          if (!ctx) return
+                          const pcm = new Int16Array(ev.data)
+                          const float32 = new Float32Array(pcm.length)
+                          for (let i = 0; i < pcm.length; i++) float32[i] = pcm[i] / 32768
+                          const buf = ctx.createBuffer(1, float32.length, 24000)
+                          buf.getChannelData(0).set(float32)
+                          const src = ctx.createBufferSource()
+                          src.buffer = buf
+                          src.connect(ctx.destination)
+                          const now = ctx.currentTime
+                          const nextStart = Math.max(now, streamNextPlayTimeRef.current)
+                          src.start(nextStart)
+                          streamNextPlayTimeRef.current = nextStart + buf.duration
+                          streamScheduledSourcesRef.current.push(src)
+                          src.onended = () => {
+                            const idx = streamScheduledSourcesRef.current.indexOf(src)
+                            if (idx >= 0) streamScheduledSourcesRef.current.splice(idx, 1)
+                          }
+                        }
+                      }
+                    } catch (err) {
+                      setStreamError(err?.message || 'Failed to connect')
+                    }
+                  }}
+                  style={{ ...buttonBase, background: streamActive ? '#dc2626' : '#059669', color: 'white' }}
+                >
+                  {streamActive ? 'Stop' : 'Start'}
+                </button>
+              </div>
+              {streamError && <div style={{ marginTop: 8, fontSize: 12, color: '#fca5a5' }}>{streamError}</div>}
+              {streamTranscriptions.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#e2e8f0', maxHeight: 120, overflowY: 'auto' }}>
+                  {streamTranscriptions.map((t, i) => (
+                    <div key={i} style={{ marginBottom: 4, color: t.type === 'user' ? '#94a3b8' : '#e2e8f0' }}>
+                      {t.type === 'user' ? 'You: ' : 'Gemini: '}{t.text}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
       <div style={{ marginTop: 12, padding: 12, background: '#0f172a', borderRadius: 6 }}>
@@ -1532,18 +1820,27 @@ export default function App() {
       .catch(() => setReadOnly(false))
   }, [])
 
+  const [loadError, setLoadError] = useState(null)
   useEffect(() => {
     const url = selectedTenantId ? `${API_BASE}/robots?tenant_id=${selectedTenantId}` : `${API_BASE}/robots`
+    setLoadError(null)
     apiFetch(url)
-      .then((r) => r.json())
-      .then(setRobots)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data) => setRobots(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        setLoadError(err?.message || 'Failed to load')
+        setRobots([])
+      })
       .finally(() => setLoading(false))
   }, [selectedTenantId])
 
   const refreshScenarios = () => {
     apiFetch(`${API_BASE}/scenarios`)
       .then((r) => r.json())
-      .then(setScenarios)
+      .then((data) => setScenarios(Array.isArray(data) ? data : []))
       .catch(() => setScenarios([]))
   }
   useEffect(() => {
@@ -1555,7 +1852,7 @@ export default function App() {
       const url = selectedTenantId ? `${API_BASE}/tasks?tenant_id=${selectedTenantId}` : `${API_BASE}/tasks`
       apiFetch(url)
         .then((r) => r.json())
-        .then(setTasks)
+        .then((data) => setTasks(Array.isArray(data) ? data : []))
         .catch(() => setTasks([]))
     }
     fetchTasks()
@@ -1705,12 +2002,12 @@ export default function App() {
     const res = await apiFetch(`${API_BASE}/tasks/${taskId}/cancel`, { method: 'POST' })
     if (res.ok) {
       const task = await res.json()
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? task : t)))
+      setTasks((prev) => (prev || []).map((t) => (t.id === taskId ? task : t)))
     }
   }
 
   const handleTaskCreated = (task) => {
-    setTasks((prev) => [task, ...prev])
+    setTasks((prev) => [task, ...(prev || [])])
     if (task.scenario_id === 'mall_assistant' && task.status === 'running') {
       setMallAssistantStatus((prev) => ({ ...prev, [task.robot_id]: 'idle' }))
     }
@@ -1724,7 +2021,7 @@ export default function App() {
     })
     if (res.ok) {
       const task = await res.json()
-      setTasks((prev) => [task, ...prev])
+      setTasks((prev) => [task, ...(prev || [])])
       setMallAssistantStatus((prev) => ({ ...prev, [robotId]: 'idle' }))
     } else {
       const text = await res.text()
@@ -1744,7 +2041,36 @@ export default function App() {
     }
   }
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>
+  const handleProcessAudio = async (robotId, audioBase64) => {
+    const res = await apiFetch(`${API_BASE}/cognitive/process-audio`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ robot_id: robotId, audio_base64: audioBase64 }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data.error || data.message || (typeof data === 'string' ? data : 'Failed to process audio'))
+    }
+    return data
+  }
+
+  if (loading) {
+    return (
+      <div style={{ padding: 24, color: '#e2e8f0', fontSize: 16 }}>
+        Loading...
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, color: '#fca5a5', fontSize: 14 }}>
+        <h1 style={{ color: '#e2e8f0', marginBottom: 8 }}>SAI AUROSY Operator Console</h1>
+        <p>Ошибка загрузки: {loadError}. Проверьте, что Control Plane запущен на порту 8080.</p>
+        <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 8 }}>API: {API_BASE}</p>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: 24, maxWidth: 600 }}>
@@ -1805,7 +2131,7 @@ export default function App() {
       />
       {(() => {
         const byLocation = {}
-        for (const r of robots) {
+        for (const r of robots || []) {
           const loc = r.location?.trim() || 'Unassigned'
           if (!byLocation[loc]) byLocation[loc] = []
           byLocation[loc].push(r)
@@ -1817,7 +2143,7 @@ export default function App() {
               {loc}
             </div>
             {byLocation[loc].map((r) => {
-              const mallAssistantTask = tasks.find((t) => t.robot_id === r.id && t.scenario_id === 'mall_assistant' && (t.status === 'pending' || t.status === 'running'))
+              const mallAssistantTask = (tasks || []).find((t) => t.robot_id === r.id && t.scenario_id === 'mall_assistant' && (t.status === 'pending' || t.status === 'running'))
               return (
                 <RobotCard
                   key={r.id}
@@ -1832,6 +2158,7 @@ export default function App() {
                   mallAssistantStatus={mallAssistantStatus[r.id]}
                   onStartMallAssistant={handleStartMallAssistant}
                   onVisitorRequest={handleVisitorRequest}
+                  onProcessAudio={handleProcessAudio}
                 />
               )
             })}

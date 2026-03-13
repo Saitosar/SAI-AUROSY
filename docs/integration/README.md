@@ -14,8 +14,8 @@ SAI AUROSY exposes a REST API for:
 
 ## Base URL and Versioning
 
-- **Base URL:** `https://<control-plane-host>/api/v1` (or `http://localhost:8080/api/v1` for local development)
-- **Versioning:** All endpoints are under `/api/v1`. Future versions will use `/api/v2`, etc. See [API Versioning and Deprecation Policy](api-versioning.md) for when new versions are introduced and how deprecation works.
+- **Base URL:** `https://<control-plane-host>/v1` (or `http://localhost:8080/v1` for local development). When using Operator Console proxy or a reverse proxy that adds `/api`, use `/api/v1` (proxied to `/v1`).
+- **Versioning:** All endpoints are under `/v1`. Future versions will use `/v2`, etc. See [API Versioning and Deprecation Policy](api-versioning.md) for when new versions are introduced and how deprecation works.
 - **Content-Type:** `application/json` for request and response bodies
 
 ## Authentication
@@ -33,8 +33,8 @@ See [Authentication](authentication.md) for details.
 ## Quick Start
 
 1. Obtain an API key (administrator creates it in the database) or JWT token
-2. List robots: `GET /api/v1/robots` with `X-API-Key: <key>` or `Authorization: Bearer <token>`
-3. Create a task: `POST /api/v1/tasks` with robot_id, scenario_id, payload
+2. List robots: `GET /v1/robots` with `X-API-Key: <key>` or `Authorization: Bearer <token>`
+3. Create a task: `POST /v1/tasks` with robot_id, scenario_id, payload
 4. Subscribe to webhooks for real-time events
 
 See [Quick Start](quickstart.md) for a step-by-step tutorial.
@@ -47,6 +47,7 @@ See [Quick Start](quickstart.md) for a step-by-step tutorial.
 - [Webhooks](webhooks.md) — Events, payload schema, HMAC verification, retry policy
 - [API Reference](api-reference.md) — Endpoint overview and OpenAPI link
 - [API Versioning and Deprecation Policy](api-versioning.md) — When /v2 is introduced, deprecation lifecycle
+- [Gemini Adapter](gemini-adapter.md) — Speech (STT, TTS, Intent) via Google Gemini API
 
 ## Multi-Tenant
 

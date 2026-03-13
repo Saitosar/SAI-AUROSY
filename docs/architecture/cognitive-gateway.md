@@ -52,6 +52,7 @@ The Cognitive Gateway includes a Speech Layer for voice-enabled robots. It suppo
 
 - **mock** — no-op provider returning empty/mock results. Default when no external AI is configured.
 - **http** — calls external AI services via REST. Configure per-capability URLs; add new AI backends without code changes.
+- **cocoon** — routes UnderstandIntent and Plan to Cocoon (TEE-isolated LLM inference). See [Cocoon Integration](cocoon-integration.md).
 
 ## Plugin Model
 
@@ -59,7 +60,7 @@ Providers are selected via configuration (env or config file). No code changes r
 
 | Variable | Purpose |
 |----------|---------|
-| `COGNITIVE_PROVIDER` | Provider name: `mock` (default) or `http` |
+| `COGNITIVE_PROVIDER` | Provider name: `mock` (default), `http`, or `cocoon` |
 | `COGNITIVE_HTTP_NAV_URL` | Navigation service base URL |
 | `COGNITIVE_HTTP_RECOGNIZE_URL` | Recognition service base URL |
 | `COGNITIVE_HTTP_PLAN_URL` | Planning service base URL |
@@ -68,6 +69,10 @@ Providers are selected via configuration (env or config file). No code changes r
 | `COGNITIVE_HTTP_INTENT_URL` | Intent extraction service base URL |
 | `COGNITIVE_HTTP_API_KEY` | Optional API key (Bearer header) |
 | `COGNITIVE_CONFIG_PATH` | Optional JSON config file path (overrides env) |
+| `COGNITIVE_COCOON_CLIENT_URL` | Cocoon client base URL (when provider=cocoon) |
+| `COGNITIVE_COCOON_MODEL` | Model name, e.g. `Qwen/Qwen3-32B` (when provider=cocoon) |
+| `COGNITIVE_COCOON_TIMEOUT_SEC` | Request timeout in seconds (when provider=cocoon) |
+| `COGNITIVE_COCOON_MAX_TOKENS` | Max tokens per request (when provider=cocoon) |
 
 Config file format (when `COGNITIVE_CONFIG_PATH` is set):
 
@@ -87,18 +92,19 @@ HTTP contract: POST with JSON body, JSON response. Each URL can point to a diffe
 
 ## API Endpoints
 
-- `POST /v1/cognitive/navigate` — navigation request
-- `POST /v1/cognitive/recognize` — recognition request
-- `POST /v1/cognitive/plan` — planning request
-- `POST /v1/cognitive/transcribe` — speech-to-text
-- `POST /v1/cognitive/synthesize` — text-to-speech
-- `POST /v1/cognitive/understand-intent` — intent extraction
+All endpoints are under `/v1` (Control Plane base path). Require authentication and respect tenant isolation (operator sees only tenant robots).
 
-All endpoints require authentication and respect tenant isolation (operator sees only tenant robots).
+- `POST /v1/cognitive/navigate` — path planning (robot_id, from, to, map_id)
+- `POST /v1/cognitive/recognize` — object/person recognition (robot_id, sensor_data)
+- `POST /v1/cognitive/plan` — task planning (task_type, context)
+- `POST /v1/cognitive/transcribe` — speech-to-text (robot_id, audio_base64, language)
+- `POST /v1/cognitive/synthesize` — text-to-speech (robot_id, text, language)
+- `POST /v1/cognitive/understand-intent` — intent extraction (robot_id, text, language, context)
 
 ## Related Documents
 
 - [Platform Architecture](platform-architecture.md)
 - [Speech Layer](speech-layer.md)
+- [Cocoon Integration](cocoon-integration.md)
 - [Phase 3.2 Cognitive Gateway](../implementation/phase-3.2-cognitive-gateway.md)
 - [Phase 3.5 Speech Layer](../implementation/phase-3.5-speech-layer.md)

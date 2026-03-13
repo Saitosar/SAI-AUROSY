@@ -4,7 +4,7 @@ This document defines how the SAI AUROSY Control Plane API is versioned and how 
 
 ## Versioning Scheme
 
-- **URL path versioning:** All API endpoints are under a version prefix: `/api/v1`, `/api/v2`, etc.
+- **URL path versioning:** All API endpoints are under a version prefix: `/v1`, `/v2`, etc. (When behind a proxy that adds `/api`, the full path is `/api/v1`.)
 - **No header-based versioning:** Clients select a version by URL path only.
 - **Stability guarantee:** A version remains stable until explicitly deprecated. Non-breaking changes stay within the same version.
 

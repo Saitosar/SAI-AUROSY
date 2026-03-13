@@ -1,58 +1,46 @@
 {
   "scenario_name": "navigation_timeout",
   "status": "FAIL",
-  "start_time": "2026-03-10T03:43:42.318923+05:00",
-  "end_time": "2026-03-10T03:44:19.322616+05:00",
-  "duration_ms": 37003,
+  "start_time": "2026-03-10T10:31:02.90049+05:00",
+  "end_time": "2026-03-10T10:31:39.897926+05:00",
+  "duration_ms": 37002,
   "assertions_passed": 0,
   "assertions_failed": 2,
-  "final_robot_state": "RETURNING_TO_BASE",
+  "final_robot_state": "IDLE",
   "emitted_events": [
     {
       "type": "navigation_completed",
       "payload": {
         "robot_id": "sim-001",
         "store": "Nike",
-        "task_id": "4b297151-ab9c-45ca-8f1a-51e7b95afc84"
+        "task_id": "3fd1751b-4e7c-464a-9542-d5f3fd869e08"
       },
-      "timestamp": "2026-03-10T03:43:58.318869+05:00"
+      "timestamp": "2026-03-10T10:31:18.9118+05:00"
     },
     {
       "type": "visitor_interaction_finished",
       "payload": {
         "robot_id": "sim-001",
-        "task_id": "4b297151-ab9c-45ca-8f1a-51e7b95afc84"
+        "task_id": "3fd1751b-4e7c-464a-9542-d5f3fd869e08"
       },
-      "timestamp": "2026-03-10T03:43:58.318872+05:00"
+      "timestamp": "2026-03-10T10:31:18.911825+05:00"
     },
     {
       "type": "task_completed",
       "payload": {
         "robot_id": "sim-001",
         "status": "completed",
-        "task_id": "4b297151-ab9c-45ca-8f1a-51e7b95afc84"
+        "task_id": "3fd1751b-4e7c-464a-9542-d5f3fd869e08"
       },
-      "timestamp": "2026-03-10T03:43:58.318872+05:00"
+      "timestamp": "2026-03-10T10:31:18.911905+05:00"
     },
     {
-      "type": "robot_state_changed",
-      "payload": {
-        "previous_state": "ARRIVED_AT_DESTINATION",
-        "robot_id": "sim-001",
-        "state": "RETURNING_TO_BASE",
-        "task_id": "14eb60cf-04a8-413a-96db-8b1c40bfa875",
-        "timestamp": "2026-03-09T22:43:59.307825Z"
-      },
-      "timestamp": "2026-03-10T03:43:59.307849+05:00"
-    },
-    {
-      "type": "robot_returning_to_base",
+      "type": "visitor_interaction_started",
       "payload": {
         "robot_id": "sim-001",
-        "task_id": "14eb60cf-04a8-413a-96db-8b1c40bfa875",
-        "timestamp": "2026-03-09T22:43:59.307829Z"
+        "task_id": "adde521f-a503-4837-b75e-7108eb39444b"
       },
-      "timestamp": "2026-03-10T03:43:59.307849+05:00"
+      "timestamp": "2026-03-10T10:31:19.845495+05:00"
     }
   ],
   "results": [
@@ -65,12 +53,19 @@
     {
       "AssertionType": "task_status",
       "Passed": false,
-      "Message": "task 7db62384-b70a-48f3-9520-0102e60ad930: expected status failed, got completed",
+      "Message": "task e8b39174-6c34-4eac-b443-32f9a60eab2e: expected status failed, got pending",
       "Details": {
-        "actual": "completed",
+        "actual": "pending",
         "expected": "failed",
-        "task_id": "7db62384-b70a-48f3-9520-0102e60ad930"
+        "task_id": "e8b39174-6c34-4eac-b443-32f9a60eab2e"
       }
+    }
+  ],
+  "contract_violations": [
+    {
+      "Category": "telemetry",
+      "Field": "target_position",
+      "Message": "required telemetry field missing or empty"
     }
   ]
 }

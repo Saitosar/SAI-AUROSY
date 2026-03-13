@@ -75,7 +75,7 @@ func setupTenantTestServer(t *testing.T) (*Server, *registry.MemoryStore) {
 	apiKeyStore := newMockAPIKeyStore()
 	analyticsStore := &mockAnalyticsStore{}
 	edgeStore := edges.NewMemoryStore()
-	srv := NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, analyticsStore, edgeStore, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	srv := NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, analyticsStore, edgeStore, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	return srv, reg
 }
 
@@ -155,7 +155,7 @@ func TestTenantEnforcement_CancelTask(t *testing.T) {
 	wfCatalog := orchestration.NewCatalog()
 	wfRunStore := orchestration.NewMemoryRunStore()
 	wfRunner := orchestration.NewRunner(wfCatalog, wfRunStore, taskStore, scenarioCatalog, reg)
-	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/v1/tasks/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +222,7 @@ func TestTenantEnforcement_ListWorkflowRuns(t *testing.T) {
 	scenarioCatalog := scenarios.NewCatalog()
 	wfCatalog := orchestration.NewCatalog()
 	wfRunner := orchestration.NewRunner(wfCatalog, wfRunStore, taskStore, scenarioCatalog, reg)
-	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/v1/workflow-runs", nil)
 	req = req.WithContext(context.WithValue(req.Context(), auth.ContextKeyClaims, &auth.Claims{Roles: []string{"operator"}, TenantID: "t1"}))
@@ -254,7 +254,7 @@ func TestTenantEnforcement_GetWorkflowRun(t *testing.T) {
 	scenarioCatalog := scenarios.NewCatalog()
 	wfCatalog := orchestration.NewCatalog()
 	wfRunner := orchestration.NewRunner(wfCatalog, wfRunStore, taskStore, scenarioCatalog, reg)
-	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/v1/workflow-runs/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +284,7 @@ func TestTenantEnforcement_ListEdges(t *testing.T) {
 	wfCatalog := orchestration.NewCatalog()
 	wfRunStore := orchestration.NewMemoryRunStore()
 	wfRunner := orchestration.NewRunner(wfCatalog, wfRunStore, taskStore, scenarioCatalog, reg)
-	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, &mockAnalyticsStore{}, edgeStore, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	srv2 := NewServer(reg, bus, newMockAPIKeyStore(), taskStore, scenarioCatalog, nil, wfCatalog, wfRunStore, wfRunner, nil, nil, nil, &mockAnalyticsStore{}, edgeStore, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	req := httptest.NewRequest("GET", "/v1/edges", nil)
 	req = req.WithContext(context.WithValue(req.Context(), auth.ContextKeyClaims, &auth.Claims{Roles: []string{"operator"}, TenantID: "t1"}))
