@@ -141,6 +141,7 @@ Robot objects include optional `location` for fleet grouping (e.g. "Warehouse A"
 | POST | `/v1/cognitive/transcribe` | Speech-to-text (robot_id, audio_base64, language) |
 | POST | `/v1/cognitive/synthesize` | Text-to-speech (robot_id, text, language) |
 | POST | `/v1/cognitive/understand-intent` | Intent extraction from user text (robot_id, text, language, context) |
+| POST | `/v1/cognitive/process-audio` | Full speech pipeline: audio -> STT -> intent -> conversation -> TTS (robot_id, audio_base64). Returns transcript, language, intent, parameters, response, audio_base64. |
 
 ## Health and Metrics
 

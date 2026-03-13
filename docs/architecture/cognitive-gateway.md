@@ -52,6 +52,7 @@ The Cognitive Gateway includes a Speech Layer for voice-enabled robots. It suppo
 
 - **mock** — no-op provider returning empty/mock results. Default when no external AI is configured.
 - **http** — calls external AI services via REST. Configure per-capability URLs; add new AI backends without code changes.
+- **cocoon** — routes UnderstandIntent and Plan to Cocoon (TEE-isolated LLM inference). See [Cocoon Integration](cocoon-integration.md).
 
 ## Plugin Model
 
@@ -59,7 +60,7 @@ Providers are selected via configuration (env or config file). No code changes r
 
 | Variable | Purpose |
 |----------|---------|
-| `COGNITIVE_PROVIDER` | Provider name: `mock` (default) or `http` |
+| `COGNITIVE_PROVIDER` | Provider name: `mock` (default), `http`, or `cocoon` |
 | `COGNITIVE_HTTP_NAV_URL` | Navigation service base URL |
 | `COGNITIVE_HTTP_RECOGNIZE_URL` | Recognition service base URL |
 | `COGNITIVE_HTTP_PLAN_URL` | Planning service base URL |
@@ -68,6 +69,10 @@ Providers are selected via configuration (env or config file). No code changes r
 | `COGNITIVE_HTTP_INTENT_URL` | Intent extraction service base URL |
 | `COGNITIVE_HTTP_API_KEY` | Optional API key (Bearer header) |
 | `COGNITIVE_CONFIG_PATH` | Optional JSON config file path (overrides env) |
+| `COGNITIVE_COCOON_CLIENT_URL` | Cocoon client base URL (when provider=cocoon) |
+| `COGNITIVE_COCOON_MODEL` | Model name, e.g. `Qwen/Qwen3-32B` (when provider=cocoon) |
+| `COGNITIVE_COCOON_TIMEOUT_SEC` | Request timeout in seconds (when provider=cocoon) |
+| `COGNITIVE_COCOON_MAX_TOKENS` | Max tokens per request (when provider=cocoon) |
 
 Config file format (when `COGNITIVE_CONFIG_PATH` is set):
 
@@ -100,5 +105,6 @@ All endpoints are under `/v1` (Control Plane base path). Require authentication 
 
 - [Platform Architecture](platform-architecture.md)
 - [Speech Layer](speech-layer.md)
+- [Cocoon Integration](cocoon-integration.md)
 - [Phase 3.2 Cognitive Gateway](../implementation/phase-3.2-cognitive-gateway.md)
 - [Phase 3.5 Speech Layer](../implementation/phase-3.5-speech-layer.md)

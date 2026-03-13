@@ -28,12 +28,12 @@ func NewPipeline(gateway cognitive.Gateway, catalog *conversations.Catalog, bus 
 
 // ProcessResult holds the result of a full speech pipeline run.
 type ProcessResult struct {
-	Transcript string
-	Language   string
-	Intent     string
-	Parameters map[string]interface{}
-	Response   string
-	AudioBase64 string
+	Transcript   string                 `json:"transcript"`
+	Language     string                 `json:"language"`
+	Intent       string                 `json:"intent"`
+	Parameters   map[string]interface{} `json:"parameters,omitempty"`
+	Response     string                 `json:"response"`
+	AudioBase64  string                 `json:"audio_base64"`
 }
 
 // Process runs the full pipeline: audio -> STT -> intent -> conversation -> TTS.
@@ -100,11 +100,23 @@ func (p *Pipeline) Process(ctx context.Context, robotID, tenantID string, audioB
 		}, nil
 	}
 
-	// 5. Synthesize TTS
+	// 4b. Translate to user language if not English
 	lang := transcribeRes.Language
 	if lang == "" {
 		lang = "en"
 	}
+	if lang != "en" {
+		translateRes, err := p.gateway.Translate(ctx, cognitive.TranslateRequest{
+			RobotID:        robotID,
+			Text:           responseText,
+			TargetLanguage: lang,
+		})
+		if err == nil && translateRes.Text != "" {
+			responseText = translateRes.Text
+		}
+	}
+
+	// 5. Synthesize TTS
 	synthReq := cognitive.SynthesizeRequest{
 		RobotID:  robotID,
 		Text:     responseText,

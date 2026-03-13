@@ -47,6 +47,7 @@ See [Quick Start](quickstart.md) for a step-by-step tutorial.
 - [Webhooks](webhooks.md) — Events, payload schema, HMAC verification, retry policy
 - [API Reference](api-reference.md) — Endpoint overview and OpenAPI link
 - [API Versioning and Deprecation Policy](api-versioning.md) — When /v2 is introduced, deprecation lifecycle
+- [Gemini Adapter](gemini-adapter.md) — Speech (STT, TTS, Intent) via Google Gemini API
 
 ## Multi-Tenant
 

@@ -36,6 +36,11 @@ flowchart TB
     ConvCatalog -->|text response| TTS
 ```
 
+## Entry Points
+
+- **REST** — `POST /v1/cognitive/process-audio` (body: `robot_id`, `audio_base64`). Runs the full pipeline and returns transcript, intent, response, and TTS audio. Used by Operator Console Speech Test.
+- **NATS** — Subscribes to `audio.robots.*.input`. When adapters publish raw audio from the robot microphone, the pipeline runs and publishes TTS to `audio.robots.{id}.output`.
+
 ## Pipeline Flow
 
 1. **Audio Input** — Robot microphone streams audio to `audio.robots.{id}.input`

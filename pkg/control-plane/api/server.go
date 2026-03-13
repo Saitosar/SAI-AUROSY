@@ -30,6 +30,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/oauth"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
+	"github.com/sai-aurosy/platform/pkg/control-plane/speech"
 	"github.com/sai-aurosy/platform/pkg/control-plane/webhooks"
 	"github.com/sai-aurosy/platform/pkg/control-plane/tasks"
 	"github.com/sai-aurosy/platform/pkg/control-plane/streaming"
@@ -68,10 +69,11 @@ type Server struct {
 	mallService          *mall.Service
 	robotStateProvider   robot.RobotStateProvider
 	simRobotService      *simrobot.SimRobotService
+	speechPipeline       *speech.Pipeline
 }
 
-// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, conversationCatalog, mallAssistantHandler, mallService, robotStateProvider, and simRobotService are optional.
-func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster, mallAssistantHandler *mallassistant.Handler, mallService *mall.Service, robotStateProvider robot.RobotStateProvider, simRobotService *simrobot.SimRobotService) *Server {
+// NewServer creates a new API server. apiKeyStore, coordinator, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, idempotencyStore, eventBroadcaster, conversationCatalog, mallAssistantHandler, mallService, robotStateProvider, simRobotService, and speechPipeline are optional.
+func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeyStore, taskStore tasks.Store, scenarioCatalog *scenarios.Catalog, coord *coordinator.Coordinator, wfCatalog *orchestration.Catalog, wfRunStore orchestration.RunStore, wfRunner *orchestration.Runner, auditStore audit.Store, webhookStore webhooks.Store, webhookDispatcher *webhooks.Dispatcher, analyticsStore analytics.Store, edgeStore edges.Store, tenantStore tenants.Store, oauthServer *oauth.Server, streamBuffer *streaming.RingBuffer, cognitiveGateway cognitive.Gateway, conversationCatalog *conversations.Catalog, marketplaceStore marketplace.Store, idempotencyStore commands.Store, eventBroadcaster *events.Broadcaster, mallAssistantHandler *mallassistant.Handler, mallService *mall.Service, robotStateProvider robot.RobotStateProvider, simRobotService *simrobot.SimRobotService, speechPipeline *speech.Pipeline) *Server {
 	var apiKeyManager auth.APIKeyManager
 	if apiKeyStore != nil {
 		apiKeyManager, _ = apiKeyStore.(auth.APIKeyManager)
@@ -104,6 +106,7 @@ func NewServer(reg registry.Store, bus *telemetry.Bus, apiKeyStore auth.APIKeySt
 		mallService:          mallService,
 		robotStateProvider:  robotStateProvider,
 		simRobotService:     simRobotService,
+		speechPipeline:      speechPipeline,
 	}
 }
 
@@ -190,6 +193,7 @@ func (s *Server) RegisterRoutes(r *mux.Router) {
 	v1.Handle("/cognitive/transcribe", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveTranscribe)))).Methods("POST")
 	v1.Handle("/cognitive/synthesize", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveSynthesize)))).Methods("POST")
 	v1.Handle("/cognitive/understand-intent", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveUnderstandIntent)))).Methods("POST")
+	v1.Handle("/cognitive/process-audio", jwtMW(opOrAdmin(http.HandlerFunc(s.cognitiveProcessAudio)))).Methods("POST")
 	if s.mallService != nil {
 		v1.Handle("/malls/{mall_id}/map", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.getMallMap)))).Methods("GET")
 		v1.Handle("/malls/{mall_id}/stores", jwtMW(opOrViewerOrAdmin(http.HandlerFunc(s.listMallStores)))).Methods("GET")
@@ -1629,6 +1633,59 @@ func (s *Server) cognitiveUnderstandIntent(w http.ResponseWriter, r *http.Reques
 	res, err := s.cognitiveGateway.UnderstandIntent(r.Context(), req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(res)
+}
+
+type processAudioRequest struct {
+	RobotID     string `json:"robot_id"`
+	AudioBase64 string `json:"audio_base64"`
+}
+
+func (s *Server) cognitiveProcessAudio(w http.ResponseWriter, r *http.Request) {
+	if s.speechPipeline == nil {
+		http.Error(w, "speech pipeline not configured", http.StatusServiceUnavailable)
+		return
+	}
+	var req processAudioRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	if req.RobotID == "" {
+		http.Error(w, "robot_id required", http.StatusBadRequest)
+		return
+	}
+	if req.AudioBase64 == "" {
+		http.Error(w, "audio_base64 required", http.StatusBadRequest)
+		return
+	}
+	tenantID, ok := tenantOrError(w, r)
+	if !ok {
+		return
+	}
+	robot := s.registry.Get(req.RobotID)
+	if robot == nil {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	if tenantID != "" && robot.TenantID != tenantID {
+		http.Error(w, "robot not found", http.StatusNotFound)
+		return
+	}
+	if tenantID == "" {
+		tenantID = robot.TenantID
+	}
+	if tenantID == "" {
+		tenantID = "default"
+	}
+	res, err := s.speechPipeline.Process(r.Context(), req.RobotID, tenantID, req.AudioBase64)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

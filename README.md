@@ -47,9 +47,11 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 **Phase 3.1** — Streaming Gateway: SSE extensions (robot_id filter, Last-Event-ID reconnect, backpressure). See [Phase 3.1 Streaming Gateway](docs/implementation/phase-3.1-streaming-gateway.md).
 
-**Phase 3.2** — Cognitive Gateway: AI services (navigation, recognition, planning), mock provider, API /v1/cognitive/*. See [Phase 3.2 Cognitive Gateway](docs/implementation/phase-3.2-cognitive-gateway.md).
+**Phase 3.2** — Cognitive Gateway: AI services (navigation, recognition, planning), mock/http/cocoon providers, API /v1/cognitive/*. Cocoon provider routes UnderstandIntent and Plan to TEE-isolated LLM inference. See [Phase 3.2 Cognitive Gateway](docs/implementation/phase-3.2-cognitive-gateway.md), [Cocoon Integration](docs/architecture/cocoon-integration.md). To test with Cocoon fake-ton, see [Cocoon Test Setup](scripts/cocoon-test-setup.md).
 
-**Phase 3.5** — Speech Layer: STT, TTS, intent extraction, Conversation Catalog, multilingual (uz, en, ru, az, ar). See [Phase 3.5 Speech Layer](docs/implementation/phase-3.5-speech-layer.md) and [Speech Layer Architecture](docs/architecture/speech-layer.md).
+**Phase 3.5** — Speech Layer: STT, TTS, intent extraction, Conversation Catalog, multilingual (uz, en, ru, az, ar). Speech Pipeline: REST `/v1/cognitive/process-audio` and NATS `audio.robots.{id}.input` for full audio flow; Operator Console Speech Test UI. See [Phase 3.5 Speech Layer](docs/implementation/phase-3.5-speech-layer.md) and [Speech Layer Architecture](docs/architecture/speech-layer.md).
+
+**Gemini Speech** — Use Google Gemini for real speech recognition and synthesis. Create `.env` with `GEMINI_API_KEY=AIza...` (from [Google AI Studio](https://aistudio.google.com/app/apikey)), then `docker compose up -d`. Test via Operator Console Speech Test (Record → Stop). See [Gemini Adapter](docs/integration/gemini-adapter.md).
 
 **Mall Assistant Scenario** — First end-to-end interactive scenario: greet visitors, answer store-location questions, guide to stores, return to standby. See [Mall Assistant Scenario](docs/implementation/mall-assistant-scenario.md).
 
@@ -87,6 +89,7 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 - [Integration Guide](docs/integration/README.md) — API overview, base URL, authentication
 - [API Reference](docs/integration/api-reference.md) — Endpoint overview and OpenAPI link
 - [API Versioning and Deprecation Policy](docs/integration/api-versioning.md) — When /v2 is introduced, deprecation lifecycle
+- [Gemini Adapter](docs/integration/gemini-adapter.md) — Speech (STT, TTS, Intent) via Google Gemini API
 
 ## Implementation
 
@@ -120,6 +123,7 @@ See [Status + Safe Stop Runbook](docs/implementation/status-safe-stop.md) and [M
 
 ## Operations
 
+- [Production Deployment](docs/production-deployment.md) — переход на production (Vercel, Supabase, Hetzner VPS)
 - [Production runbook](docs/operations/production-runbook.md) — deployment, monitoring, alerts, recovery
 - [Operator runbook](docs/operations/operator-runbook.md) — tenant onboarding, workflow creation, troubleshooting
 

@@ -3,6 +3,7 @@ package telemetry
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/nats-io/nats.go"
 	"github.com/sai-aurosy/platform/pkg/hal"
@@ -135,6 +136,20 @@ func (b *Bus) SubscribeAudioInput(robotID string, handler func([]byte)) (*nats.S
 	topic := fmt.Sprintf("%s.%s.input", TopicAudioPrefix, robotID)
 	return b.nc.Subscribe(topic, func(msg *nats.Msg) {
 		handler(msg.Data)
+	})
+}
+
+// SubscribeAllAudioInput subscribes to audio input for all robots (audio.robots.*.input).
+// The handler receives robotID and raw audio bytes.
+func (b *Bus) SubscribeAllAudioInput(handler func(robotID string, data []byte)) (*nats.Subscription, error) {
+	topic := fmt.Sprintf("%s.*.input", TopicAudioPrefix)
+	return b.nc.Subscribe(topic, func(msg *nats.Msg) {
+		// Subject format: audio.robots.{robot_id}.input
+		parts := strings.Split(msg.Subject, ".")
+		if len(parts) >= 3 {
+			robotID := parts[2]
+			handler(robotID, msg.Data)
+		}
 	})
 }
 

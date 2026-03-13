@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -30,6 +32,7 @@ import (
 	"github.com/sai-aurosy/platform/pkg/control-plane/cognitive"
 	"github.com/sai-aurosy/platform/pkg/control-plane/registry"
 	"github.com/sai-aurosy/platform/pkg/control-plane/scenarios"
+	"github.com/sai-aurosy/platform/pkg/control-plane/speech"
 	"github.com/sai-aurosy/platform/pkg/control-plane/streaming"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics"
 	"github.com/sai-aurosy/platform/pkg/control-plane/analytics/retention"
@@ -330,12 +333,19 @@ func main() {
 	} else {
 		convStore := conversations.NewMemoryStore()
 		conversationCatalog = conversations.NewCatalog(convStore)
+		seedDefaultConversations(ctx, conversationCatalog)
 	}
+
+	speechPipeline := speech.NewPipeline(cogGateway, conversationCatalog, bus)
+	if !workforceRemote {
+		go runSpeechPipelineAudioSubscriber(ctx, bus, reg, speechPipeline)
+	}
+
 	var robotStateProvider robot.RobotStateProvider
 	if executionEngine != nil {
 		robotStateProvider = executionEngine
 	}
-	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster, mallAssistantHandler, mallService, robotStateProvider, simRobotService)
+	srv := api.NewServer(reg, bus, apiKeyStore, taskStore, scenarioCatalog, coord, wfCatalog, wfRunStore, wfRunner, auditStore, webhookStore, webhookDispatcher, analyticsStore, edgeStore, tenantStore, oauthServer, streamBuf, cogGateway, conversationCatalog, marketplaceStore, idempotencyStore, eventBroadcaster, mallAssistantHandler, mallService, robotStateProvider, simRobotService, speechPipeline)
 	r := mux.NewRouter()
 
 	healthHandler := health.NewHandler(bus, db)
@@ -474,6 +484,52 @@ func runRobotOnlineWatcher(ctx context.Context, bus *telemetry.Bus, dispatcher *
 	}
 	defer sub.Unsubscribe()
 	<-ctx.Done()
+}
+
+func runSpeechPipelineAudioSubscriber(ctx context.Context, bus *telemetry.Bus, reg registry.Store, pipeline *speech.Pipeline) {
+	if pipeline == nil {
+		return
+	}
+	sub, err := bus.SubscribeAllAudioInput(func(robotID string, data []byte) {
+		robot := reg.Get(robotID)
+		if robot == nil {
+			log.Printf("[speech] robot %s not in registry, skipping audio", robotID)
+			return
+		}
+		tenantID := robot.TenantID
+		if tenantID == "" {
+			tenantID = "default"
+		}
+		audioBase64 := base64.StdEncoding.EncodeToString(data)
+		processCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		_, err := pipeline.Process(processCtx, robotID, tenantID, audioBase64)
+		if err != nil {
+			log.Printf("[speech] pipeline process failed robot=%s: %v", robotID, err)
+		}
+	})
+	if err != nil {
+		log.Printf("[speech] SubscribeAllAudioInput failed: %v", err)
+		return
+	}
+	defer sub.Unsubscribe()
+	<-ctx.Done()
+}
+
+func seedDefaultConversations(ctx context.Context, catalog *conversations.Catalog) {
+	if catalog == nil {
+		return
+	}
+	defaults := []conversations.Conversation{
+		{ID: "conv-find-store", Intent: "find_store", Name: "Find Store", Description: "Visitor asks for store location", ResponseTemplate: "{{store_name}} store is here.", SupportedLanguages: []string{"uz", "en", "ru", "az", "ar"}},
+		{ID: "conv-greeting", Intent: "greeting", Name: "Greeting", Description: "Visitor greets the robot", ResponseTemplate: "Hello! How can I help you?", SupportedLanguages: []string{"uz", "en", "ru", "az", "ar"}},
+		{ID: "conv-goodbye", Intent: "goodbye", Name: "Goodbye", Description: "Visitor says goodbye", ResponseTemplate: "Goodbye! Have a nice day.", SupportedLanguages: []string{"uz", "en", "ru", "az", "ar"}},
+	}
+	for _, c := range defaults {
+		if err := catalog.Create(ctx, &c); err != nil && !errors.Is(err, conversations.ErrAlreadyExists) {
+			log.Printf("seed conversation %s: %v", c.ID, err)
+		}
+	}
 }
 
 func seedRobots(reg registry.Store) {

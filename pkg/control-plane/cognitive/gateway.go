@@ -18,4 +18,6 @@ type Gateway interface {
 	Synthesize(ctx context.Context, req SynthesizeRequest) (*SynthesizeResult, error)
 	// UnderstandIntent extracts structured intent from user text.
 	UnderstandIntent(ctx context.Context, req UnderstandIntentRequest) (*IntentResult, error)
+	// Translate translates text to the target language.
+	Translate(ctx context.Context, req TranslateRequest) (*TranslateResult, error)
 }
