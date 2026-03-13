@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const API_BASE = '/api/v1'
+const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:4222'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 

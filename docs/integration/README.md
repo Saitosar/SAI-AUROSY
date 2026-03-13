@@ -14,7 +14,7 @@ SAI AUROSY exposes a REST API for:
 
 ## Base URL and Versioning
 
-- **Base URL:** `https://<control-plane-host>/v1` (or `http://localhost:8080/v1` for local development). When using Operator Console proxy or a reverse proxy that adds `/api`, use `/api/v1` (proxied to `/v1`).
+- **Base URL:** `https://<control-plane-host>/v1` (or `http://localhost:8080/v1` for local development). When using Operator Console proxy or a reverse proxy that adds `/api`, use `/api/v1` (proxied to `/v1`). For production (Vercel), Operator Console reads `VITE_API_BASE` and defaults to `/api/v1` when unset.
 - **Versioning:** All endpoints are under `/v1`. Future versions will use `/v2`, etc. See [API Versioning and Deprecation Policy](api-versioning.md) for when new versions are introduced and how deprecation works.
 - **Content-Type:** `application/json` for request and response bodies
 
