@@ -41,15 +41,16 @@
 | `VITE_API_BASE` | URL Control Plane API | `https://api.yourdomain.com/v1` |
 | `VITE_API_KEY` | API key для авторизации (опционально) | `sk-...` |
 
-### 1.3. Изменения в коде
+### 1.3. API base URL (implemented)
 
-В `pkg/operator-console/src/App.jsx` используется `API_BASE = '/api/v1'`. Для production необходимо поддержать внешний URL:
+Operator Console uses `VITE_API_BASE` for the Control Plane API URL. In `pkg/operator-console/src/App.jsx`:
 
 ```javascript
 const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 ```
 
-При деплое на Vercel `VITE_API_BASE` будет указывать на ваш Control Plane.
+- **Local development:** defaults to `/api/v1` (proxied via Vite)
+- **Vercel production:** set `VITE_API_BASE` to your Control Plane URL (e.g. `https://api.yourdomain.com/v1`)
 
 ### 1.4. SSE (EventSource)
 
@@ -248,7 +249,7 @@ openssl rand -base64 32
 - [ ] **VPS:** настроить reverse proxy и HTTPS
 - [ ] **VPS:** создать `.env` с секретами
 - [ ] **VPS:** запустить `docker compose -f docker-compose.prod.yml up -d`
-- [ ] **Код:** добавить поддержку `VITE_API_BASE` в Operator Console
+- [x] **Код:** поддержка `VITE_API_BASE` в Operator Console (реализовано)
 - [ ] **Vercel:** добавить переменные `VITE_API_BASE`, `VITE_API_KEY`
 - [ ] **Vercel:** задеплоить Operator Console (root: `pkg/operator-console`)
 - [ ] **Control Plane:** проверить `CORS_ORIGINS` (домен Vercel)
