@@ -43,7 +43,7 @@ func main() {
 
 	driver := os.Getenv("REGISTRY_DB_DRIVER")
 	if driver == "" {
-		log.Fatal("REGISTRY_DB_DRIVER required for workforce (use sqlite or postgres)")
+		log.Fatal("REGISTRY_DB_DRIVER required for workforce (use sqlite, postgres, or libsql)")
 	}
 	dsn := secrets.GetSecretOrEnv(ctx, secretsProvider, "REGISTRY_DB_DSN")
 	if dsn == "" {
