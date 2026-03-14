@@ -31,7 +31,7 @@ No additional configuration. Secrets are read from environment variables:
 
 - `JWT_SECRET`
 - `JWT_PUBLIC_KEY`
-- `REGISTRY_DB_DSN`
+- `REGISTRY_DB_DSN` (PostgreSQL: `postgres://...`; Turso: `libsql://...?authToken=...`)
 - `COGNITIVE_HTTP_API_KEY`
 - `EDGE_API_KEY`
 - `GEMINI_API_KEY` — used by the Gemini Adapter (see [Gemini Adapter](../integration/gemini-adapter.md))

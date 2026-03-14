@@ -17,7 +17,7 @@ Phase 2.1 укрепляет Control Plane: персистентный Fleet Reg
 |------------|----------|--------------|
 | `NATS_URL` | URL NATS | `nats://localhost:4222` |
 | `CONTROL_PLANE_ADDR` | Адрес сервера | `:8080` |
-| `REGISTRY_DB_DRIVER` | `sqlite` или `postgres` | — (in-memory) |
+| `REGISTRY_DB_DRIVER` | `sqlite`, `postgres` или `libsql` | — (in-memory) |
 | `REGISTRY_DB_DSN` | Строка подключения к БД | для sqlite: `file::memory:?cache=shared` |
 | `JWT_SECRET` | Секрет для HMAC JWT | — |
 | `JWT_PUBLIC_KEY` | PEM публичный ключ для RS256 | — |
@@ -52,6 +52,15 @@ go run ./cmd/control-plane
 export NATS_URL=nats://localhost:4222
 export REGISTRY_DB_DRIVER=postgres
 export REGISTRY_DB_DSN=postgres://user:pass@localhost:5432/sai_aurosy?sslmode=disable
+go run ./cmd/control-plane
+```
+
+### Turso (libSQL)
+
+```bash
+export NATS_URL=nats://localhost:4222
+export REGISTRY_DB_DRIVER=libsql
+export REGISTRY_DB_DSN=libsql://your-db-username.turso.io?authToken=YOUR_TOKEN
 go run ./cmd/control-plane
 ```
 

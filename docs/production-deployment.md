@@ -9,7 +9,7 @@
 | Operator Console | React + Vite | UI для управления роботами |
 | Control Plane | Go | REST API, auth, streaming, cognitive gateway |
 | NATS | Event broker | Телеметрия, события, очереди |
-| PostgreSQL | БД | Роботы, задачи, сценарии, audit, webhooks |
+| PostgreSQL / Turso (libSQL) | БД | Роботы, задачи, сценарии, audit, webhooks |
 | Gemini Adapter | Python | STT, TTS, intent (речь) |
 | Robot Adapters | Go | Связь с роботами (AGIBOT, Unitree) |
 
@@ -20,7 +20,7 @@
 | Компонент | Рекомендация | Альтернатива |
 |-----------|--------------|--------------|
 | Frontend | Vercel | Netlify, Cloudflare Pages |
-| База данных | Supabase (PostgreSQL) | Railway, Neon, собственный PostgreSQL |
+| База данных | Turso (libSQL) или Supabase (PostgreSQL) | Railway, Neon, собственный PostgreSQL |
 | Backend | Hetzner VPS | AWS EC2, DigitalOcean, любой VPS |
 | Домен + SSL | Cloudflare / Let's Encrypt | — |
 
@@ -58,19 +58,40 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 
 ---
 
-## 2. База данных (Supabase)
+## 2. База данных
+
+### 2.1. Turso (libSQL) — рекомендуется
+
+Turso — managed libSQL (SQLite-совместимый), без лимитов на проекты. Подходит для Control Plane.
+
+**Создание БД:**
+
+1. Установите [Turso CLI](https://docs.turso.tech/cli/install): `brew install tursodatabase/tap/turso`
+2. Войдите: `turso auth login`
+3. Создайте БД: `turso db create sai-aurosy-registry --region ams`
+4. Получите URL: `turso db show sai-aurosy-registry --url`
+5. Создайте токен: `turso db tokens create sai-aurosy-registry`
+
+**Переменные окружения:**
+
+```
+REGISTRY_DB_DRIVER=libsql
+REGISTRY_DB_DSN=libsql://[DB]-[USER].turso.io?authToken=[TOKEN]
+```
+
+**Безопасность:** Храните токен в секретах (VPS env, Vault). Не коммитьте DSN в репозиторий.
+
+### 2.2. Supabase (PostgreSQL)
 
 Supabase предоставляет managed PostgreSQL, совместимый с Control Plane.
 
-### 2.1. Создание проекта
+**Создание проекта:**
 
 1. Создайте проект в [Supabase](https://supabase.com)
 2. В **Settings → Database** скопируйте connection string
 3. Используйте **Connection pooling** (порт 6543) для лучшей производительности
 
-### 2.2. Connection string
-
-Формат DSN для Control Plane:
+**Connection string:**
 
 ```
 postgres://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require
@@ -82,15 +103,11 @@ postgres://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:
 postgres://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres?sslmode=require
 ```
 
+**Переменные:** `REGISTRY_DB_DRIVER=postgres`, `REGISTRY_DB_DSN=...`
+
 ### 2.3. Миграции
 
-Control Plane автоматически применяет миграции при старте. Таблицы создаются в схеме `public`. Дополнительных действий не требуется.
-
-### 2.4. Безопасность
-
-- Никогда не коммитьте DSN в репозиторий
-- Храните пароль в секретах (Vercel, VPS env, Vault)
-- Supabase поддерживает connection pooling — рекомендуется для production
+Control Plane автоматически применяет миграции при старте. Дополнительных действий не требуется.
 
 ---
 
@@ -128,7 +145,9 @@ services:
     environment:
       NATS_URL: nats://nats:4222
       CONTROL_PLANE_ADDR: ":8080"
-      REGISTRY_DB_DRIVER: postgres
+      # Turso: REGISTRY_DB_DRIVER=libsql, REGISTRY_DB_DSN=libsql://...?authToken=...
+      # Supabase: REGISTRY_DB_DRIVER=postgres, REGISTRY_DB_DSN=postgres://...
+      REGISTRY_DB_DRIVER: ${REGISTRY_DB_DRIVER}
       REGISTRY_DB_DSN: ${REGISTRY_DB_DSN}
       JWT_SECRET: ${JWT_SECRET}
       JWT_ISSUER: sai-aurosy
@@ -162,8 +181,14 @@ services:
 Создайте `.env` на VPS (не коммитить в git):
 
 ```bash
-# Database (Supabase)
-REGISTRY_DB_DSN=postgres://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require
+# Database — Turso или Supabase
+# Turso:
+REGISTRY_DB_DRIVER=libsql
+REGISTRY_DB_DSN=libsql://your-db-username.turso.io?authToken=YOUR_TOKEN
+
+# Supabase:
+# REGISTRY_DB_DRIVER=postgres
+# REGISTRY_DB_DSN=postgres://postgres.[REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require
 
 # Auth
 JWT_SECRET=<openssl rand -base64 32>
@@ -227,7 +252,7 @@ server {
 | Секрет | Где хранить | Описание |
 |--------|-------------|----------|
 | `JWT_SECRET` | VPS env, Vault | HMAC для JWT |
-| `REGISTRY_DB_DSN` | VPS env, Vault | Подключение к PostgreSQL |
+| `REGISTRY_DB_DSN` | VPS env, Vault | Подключение к PostgreSQL или Turso (libSQL) |
 | `GEMINI_API_KEY` | VPS env | Google Gemini API |
 
 ### 5.2. Генерация JWT_SECRET
@@ -244,7 +269,7 @@ openssl rand -base64 32
 
 ## 6. Чеклист деплоя
 
-- [ ] **Supabase:** создать проект, получить DSN
+- [ ] **База данных:** Turso — создать БД, получить URL и токен; или Supabase — создать проект, получить DSN
 - [ ] **VPS:** установить Docker, настроить firewall (22, 80, 443)
 - [ ] **VPS:** настроить reverse proxy и HTTPS
 - [ ] **VPS:** создать `.env` с секретами
@@ -279,7 +304,7 @@ openssl rand -base64 32
          │                 │                 │
          │                 ├── NATS :4222    └── Google Gemini API
          │                 │
-         │                 └── Supabase PostgreSQL
+         │                 └── Turso (libSQL) или Supabase PostgreSQL
          │
          └── /v1/* → Control Plane
 ```
@@ -292,7 +317,7 @@ openssl rand -base64 32
 |-------------|---------|
 | Мониторинг | Prometheus + Grafana (на VPS или облачный) |
 | Логи | Loki, Papertrail, CloudWatch |
-| Резервные копии БД | Supabase встроенные бэкапы; дополнительно pg_dump |
+| Резервные копии БД | Turso: `turso db shell` + `.backup`; Supabase: встроенные бэкапы, pg_dump |
 | CI/CD | GitHub Actions для билда и деплоя на VPS |
 | Домен | Зарегистрировать домен, настроить DNS (A-запись на IP VPS) |
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 	"github.com/sai-aurosy/platform/pkg/hal"
 	_ "modernc.org/sqlite"
 )
@@ -19,8 +20,11 @@ type SQLStore struct {
 }
 
 // NewSQLStore creates a new SQL-backed registry store.
-// driver: "sqlite" or "pgx" (PostgreSQL); dsn: connection string.
+// driver: "sqlite", "pgx" (PostgreSQL), or "libsql"/"turso" (Turso); dsn: connection string.
 func NewSQLStore(driver, dsn string) (*SQLStore, error) {
+	if driver == "turso" {
+		driver = "libsql"
+	}
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, err
@@ -42,6 +46,9 @@ func NewSQLStore(driver, dsn string) (*SQLStore, error) {
 
 // NewSQLStoreFromDB creates a SQL store from an existing connection.
 func NewSQLStoreFromDB(db *sql.DB, driver string) (*SQLStore, error) {
+	if driver == "turso" {
+		driver = "libsql"
+	}
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
